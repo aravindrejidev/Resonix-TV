@@ -1,0 +1,194 @@
+# ResonixTV - build a debug APK on GitHub-hosted runners (module 2).
+#
+# Run it:  push to any branch, or  Actions tab > "Build debug APK" > Run workflow.
+# Result:  the APK is attached to the run (Artifacts section) as a plain .apk, no zip.
+#
+# Keep these in sync with the project:
+#   Gradle 9.6.0       = minimum/default for AGP 9.4.0
+#   NDK, CMake         = app/build.gradle.kts (ndkVersion, externalNativeBuild.cmake.version)
+#   Build tools 36.0.0 = default for AGP 9.4.0
+
+name: Build debug APK
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+    inputs:
+      abis:
+        description: "CPU architectures to build"
+        type: choice
+        default: "arm64-v8a,armeabi-v7a"
+        options:
+          - "arm64-v8a,armeabi-v7a"
+          - "arm64-v8a"
+          - "armeabi-v7a"
+          - "arm64-v8a,armeabi-v7a,x86_64"
+      publish_release:
+        description: "Also publish the APK as the 'latest-debug' pre-release (direct download link, public repos only)"
+        type: boolean
+        default: false
+
+concurrency:
+  # A newer push cancels the older push build; manual runs are never cancelled by pushes.
+  group: build-apk-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_VERSION: "9.6.0"
+  NDK_VERSION: "28.2.13676358"
+  CMAKE_VERSION: "3.22.1"
+  BUILD_TOOLS_VERSION: "36.0.0"
+
+jobs:
+  build:
+    name: Assemble debug APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write # only used by the optional pre-release step
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      # The project may sit in a sub-folder if the ZIP was uploaded with its top folder.
+      - name: Locate Gradle project
+        run: |
+          FOUND="$(find . -maxdepth 3 -name settings.gradle.kts -not -path './.git/*' -printf '%d %p\n' | sort -n | head -n 1 | cut -d' ' -f2-)"
+          if [ -z "$FOUND" ]; then
+            echo "::error title=Gradle project not found::settings.gradle.kts is missing. Upload the CONTENTS of the ResonixTV folder (not the folder itself) to the repository root."
+            exit 1
+          fi
+          DIR="$(dirname "$FOUND")"
+          echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
+          echo "Gradle project directory: $DIR"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # No Gradle wrapper in the repo: this action installs the exact Gradle version.
+      - name: Set up Gradle ${{ env.GRADLE_VERSION }}
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+          build-root-directory: ${{ env.PROJECT_DIR }}
+          # 'basic' = MIT-licensed cache. The default 'enhanced' cache is a proprietary
+          # component under Gradle's Terms of Use, so it is not used here.
+          cache-provider: basic
+
+      # The runner image has NDK 27/29 and CMake 3.31 only; install the pinned versions.
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::warning::sdkmanager not found - Gradle will download missing SDK parts itself."
+            exit 0
+          fi
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses > /dev/null || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+            "build-tools;${BUILD_TOOLS_VERSION}" \
+            "ndk;${NDK_VERSION}" \
+            "cmake;${CMAKE_VERSION}" > /dev/null \
+            || echo "::warning::sdkmanager could not install everything - Gradle will try the rest."
+
+      - name: Build debug APK
+        shell: bash
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          ABIS: ${{ inputs.abis }}
+        run: |
+          EXTRA=()
+          if [ -n "$ABIS" ]; then EXTRA+=("-Presonix.abis=$ABIS"); fi
+          gradle assembleDebug --stacktrace --console=plain "${EXTRA[@]}" 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+
+      - name: Collect and verify APK
+        id: apk
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          SRC="$(ls app/build/outputs/apk/debug/*.apk 2>/dev/null | head -n 1)"
+          if [ -z "$SRC" ]; then
+            echo "::error::Gradle finished but no debug APK was produced."
+            exit 1
+          fi
+
+          NAME="ResonixTV-debug-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}.apk"
+          mkdir -p dist
+          cp "$SRC" "dist/$NAME"
+          cp "$SRC" dist/ResonixTV-debug.apk # fixed name for the optional release link
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+          echo "Native libraries inside the APK:"
+          unzip -l "dist/$NAME" | grep -E 'lib/[^/]+/lib(resonix_native|oboe|c\+\+_shared)\.so' || true
+          if ! unzip -l "dist/$NAME" | grep -q 'libresonix_native\.so'; then
+            echo "::error::libresonix_native.so is missing from the APK (the NDK/CMake step did not run)."
+            exit 1
+          fi
+
+          SIZE="$(du -h "dist/$NAME" | cut -f1)"
+          SHA="$(sha256sum "dist/$NAME" | cut -d' ' -f1)"
+          {
+            echo "### ResonixTV debug build #${GITHUB_RUN_NUMBER}"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| File | \`$NAME\` |"
+            echo "| Size | $SIZE |"
+            echo "| SHA-256 | \`$SHA\` |"
+            echo "| Commit | \`${GITHUB_SHA::7}\` |"
+            echo ""
+            echo "Install from a computer: \`adb connect <TV-IP>:5555\` then \`adb install -r $NAME\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # archive: false = the artifact is the .apk itself (no zip to extract on the phone).
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ env.PROJECT_DIR }}/dist/${{ steps.apk.outputs.name }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      # Optional: stable direct link  https://github.com/<owner>/<repo>/releases/download/latest-debug/ResonixTV-debug.apk
+      # Works with the "Downloader" app on Android TV / Fire TV when the repository is public.
+      - name: Publish rolling pre-release
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        working-directory: ${{ env.PROJECT_DIR }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="latest-debug"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/ResonixTV-debug.apk"
+          gh release delete "$TAG" --cleanup-tag --yes || true
+          gh release create "$TAG" dist/ResonixTV-debug.apk \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "ResonixTV latest debug build" \
+            --notes "Automated debug build #${GITHUB_RUN_NUMBER} from commit ${GITHUB_SHA::7}. Direct link: ${URL}"
+          echo "Direct download link: ${URL}" >> "$GITHUB_STEP_SUMMARY"
+
+      # Short, copy-friendly error digest on the run's summary page (handy on a phone).
+      - name: Summarize errors
+        if: failure()
+        run: |
+          LOG="$RUNNER_TEMP/gradle-build.log"
+          [ -f "$LOG" ] || exit 0
+          {
+            echo "### Build failed - key errors"
+            echo "Copy the block below when asking for help."
+            echo '```'
+            grep -E '^e: |CMake Error|error: |Could not (resolve|find)' "$LOG" | head -n 25 || true
+            echo '---'
+            sed -n '/^FAILURE: /,/^\* Try:/p' "$LOG" | head -n 40 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
