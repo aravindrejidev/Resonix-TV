@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark neumorphism palette (Compose theme tokens follow in module 4) -->
+    <color name="resonix_background">#FF121418</color>
+    <color name="resonix_surface">#FF1C1F26</color>
+    <color name="resonix_accent_cyan">#FF00E5FF</color>
+    <color name="resonix_accent_blue">#FF3B82F6</color>
+
+    <color name="ic_launcher_background">#FF16181D</color>
+</resources>

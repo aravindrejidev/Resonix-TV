@@ -1,0 +1,21 @@
+# Gradle / build output
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Artifacts & secrets
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# FFmpeg static libraries are built in CI (module 3) and never committed
+/third_party/ffmpeg/
