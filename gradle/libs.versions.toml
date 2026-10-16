@@ -12,6 +12,7 @@ datastore = "1.2.1"
 media3 = "1.11.1"
 coroutines = "1.11.0"
 oboe = "1.10.0"
+checkerQual = "3.42.0"
 
 [libraries]
 # Jetpack Compose (versions managed by the BOM)
@@ -38,6 +39,9 @@ androidx-media3-session = { group = "androidx.media3", name = "media3-session", 
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 androidx-media3-ui-compose = { group = "androidx.media3", name = "media3-ui-compose", version.ref = "media3" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3" }
+
+# Compile-time only: annotations used by the Media3 FFmpeg extension sources (fetched in CI)
+checker-qual = { group = "org.checkerframework", name = "checker-qual", version.ref = "checkerQual" }
 
 # Native audio engine (C++ / Prefab)
 oboe = { group = "com.google.oboe", name = "oboe", version.ref = "oboe" }

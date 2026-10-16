@@ -87,7 +87,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: ${{ env.GRADLE_VERSION }}
-          build-root-directory: ${{ env.PROJECT_DIR }}
           # 'basic' = MIT-licensed cache. The default 'enhanced' cache is a proprietary
           # component under Gradle's Terms of Use, so it is not used here.
           cache-provider: basic

@@ -120,4 +120,7 @@ dependencies {
 
     // Native audio engine (C++): Oboe through Prefab
     implementation(libs.oboe)
+
+    // Compile-time only: the Media3 FFmpeg extension sources (fetched in CI) use these annotations.
+    compileOnly(libs.checker.qual)
 }
