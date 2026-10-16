@@ -26,24 +26,18 @@ target_link_options(resonix_native PRIVATE -Wl,--gc-sections)
 
 target_link_libraries(resonix_native PRIVATE oboe::oboe log android)
 
-# ---- Optional: our own FFmpeg build (module 3) ---------------------------------------
-# CI builds static FFmpeg libs into <project>/third_party/ffmpeg/<ABI>/{include,lib}.
-# Until they exist, the library simply builds without FFmpeg.
-set(RESONIX_FFMPEG_ROOT
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/ffmpeg/${ANDROID_ABI}")
+# ---- Optional: FFmpeg audio decoders for ExoPlayer (module 3b) -------------------------
+# scripts/setup_ffmpeg.sh fetches Media3's decoder_ffmpeg module and builds FFmpeg (LGPL,
+# audio decoders only) into <project>/third_party/media3-ffmpeg/jni. That folder brings its own
+# CMake target "ffmpegJNI". Without it the app still builds and ExoPlayer falls back to the
+# device's MediaCodec decoders (no DTS / TrueHD on most TVs).
+set(RESONIX_MEDIA3_FFMPEG_JNI
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/media3-ffmpeg/jni")
 
-if(EXISTS "${RESONIX_FFMPEG_ROOT}/lib/libavcodec.a")
-    message(STATUS "ResonixTV: FFmpeg found for ${ANDROID_ABI}")
-    target_include_directories(resonix_native PRIVATE "${RESONIX_FFMPEG_ROOT}/include")
-    target_compile_definitions(resonix_native PRIVATE RESONIX_HAS_FFMPEG=1)
-    target_link_libraries(resonix_native PRIVATE
-        -Wl,--start-group
-        "${RESONIX_FFMPEG_ROOT}/lib/libavformat.a"
-        "${RESONIX_FFMPEG_ROOT}/lib/libavcodec.a"
-        "${RESONIX_FFMPEG_ROOT}/lib/libswresample.a"
-        "${RESONIX_FFMPEG_ROOT}/lib/libavutil.a"
-        -Wl,--end-group
-        z m)
+if(EXISTS "${RESONIX_MEDIA3_FFMPEG_JNI}/CMakeLists.txt" AND
+   EXISTS "${RESONIX_MEDIA3_FFMPEG_JNI}/ffmpeg/android-libs/${ANDROID_ABI}/libavcodec.a")
+    message(STATUS "ResonixTV: building FFmpeg decoder JNI for ${ANDROID_ABI}")
+    add_subdirectory("${RESONIX_MEDIA3_FFMPEG_JNI}" "${CMAKE_CURRENT_BINARY_DIR}/media3_ffmpeg_jni")
 else()
-    message(STATUS "ResonixTV: FFmpeg not found for ${ANDROID_ABI} - building without it")
+    message(STATUS "ResonixTV: FFmpeg decoder libs not found for ${ANDROID_ABI} - skipping")
 endif()

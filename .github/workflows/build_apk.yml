@@ -1,4 +1,4 @@
-# ResonixTV - build a debug APK on GitHub-hosted runners (module 2).
+# ResonixTV - build a debug APK on GitHub-hosted runners (modules 2 + 3).
 #
 # Run it:  push to any branch, or  Actions tab > "Build debug APK" > Run workflow.
 # Result:  the APK is attached to the run (Artifacts section) as a plain .apk, no zip.
@@ -26,6 +26,10 @@ on:
           - "arm64-v8a"
           - "armeabi-v7a"
           - "arm64-v8a,armeabi-v7a,x86_64"
+      with_ffmpeg:
+        description: "Build the FFmpeg audio decoders (DTS, TrueHD, E-AC3 ...). The first run takes several minutes, later runs use the cache."
+        type: boolean
+        default: true
       publish_release:
         description: "Also publish the APK as the 'latest-debug' pre-release (direct download link, public repos only)"
         type: boolean
@@ -68,6 +72,9 @@ jobs:
           DIR="$(dirname "$FOUND")"
           echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
           echo "Gradle project directory: $DIR"
+          MEDIA3_VERSION="$(sed -n 's/^media3 = "\([^"]*\)".*/\1/p' "$DIR/gradle/libs.versions.toml" | head -n 1)"
+          echo "MEDIA3_VERSION=$MEDIA3_VERSION" >> "$GITHUB_ENV"
+          echo "Media3 version (from libs.versions.toml): $MEDIA3_VERSION"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -101,6 +108,60 @@ jobs:
             "cmake;${CMAKE_VERSION}" > /dev/null \
             || echo "::warning::sdkmanager could not install everything - Gradle will try the rest."
 
+      # Fast guard (seconds): the C++ DSP engine must pass its own tests before anything else runs.
+      - name: DSP self-test (host build)
+        shell: bash
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O2 -Wall -Wextra -Iapp/src/main/cpp app/src/main/cpp/dsp/*.cpp tools/dsp_selftest_main.cpp -o "$RUNNER_TEMP/dsp_selftest"
+          "$RUNNER_TEMP/dsp_selftest" | tee "$RUNNER_TEMP/dsp-selftest.txt"
+          { echo '### DSP self-test'; echo '```'; cat "$RUNNER_TEMP/dsp-selftest.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      # FFmpeg audio decoders: built once, then restored from the cache. Best effort - if this
+      # fails the APK is still built (ExoPlayer then uses the TV's own MediaCodec decoders).
+      - name: Restore FFmpeg decoder cache
+        id: ffcache
+        if: github.event_name != 'workflow_dispatch' || inputs.with_ffmpeg
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ${{ env.PROJECT_DIR }}/third_party/media3-ffmpeg
+            ${{ env.PROJECT_DIR }}/app/src/main/java/androidx/media3/decoder/ffmpeg
+          key: ffmpeg-${{ runner.os }}-media3-${{ env.MEDIA3_VERSION }}-ndk${{ env.NDK_VERSION }}-${{ hashFiles('**/scripts/setup_ffmpeg.sh') }}
+
+      - name: Build FFmpeg audio decoders (LGPL)
+        id: ffbuild
+        if: (github.event_name != 'workflow_dispatch' || inputs.with_ffmpeg) && steps.ffcache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        shell: bash
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          export NDK_PATH="$ANDROID_HOME/ndk/$NDK_VERSION"
+          bash scripts/setup_ffmpeg.sh 2>&1 | tee "$RUNNER_TEMP/ffmpeg-build.log"
+
+      - name: Save FFmpeg decoder cache
+        if: steps.ffbuild.outcome == 'success'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ${{ env.PROJECT_DIR }}/third_party/media3-ffmpeg
+            ${{ env.PROJECT_DIR }}/app/src/main/java/androidx/media3/decoder/ffmpeg
+          key: ffmpeg-${{ runner.os }}-media3-${{ env.MEDIA3_VERSION }}-ndk${{ env.NDK_VERSION }}-${{ hashFiles('**/scripts/setup_ffmpeg.sh') }}
+
+      - name: Report FFmpeg build failure
+        if: steps.ffbuild.outcome == 'failure'
+        run: |
+          echo "::warning title=FFmpeg build failed::The APK is built without FFmpeg decoders. See the job summary."
+          {
+            echo "### FFmpeg build failed (APK built without FFmpeg decoders)"
+            echo "Copy the block below when asking for help."
+            echo '```'
+            grep -iE 'error|fatal|not found|No such file' "$RUNNER_TEMP/ffmpeg-build.log" | head -n 15 || true
+            echo '---'
+            tail -n 25 "$RUNNER_TEMP/ffmpeg-build.log" || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build debug APK
         shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
@@ -128,12 +189,13 @@ jobs:
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
           echo "Native libraries inside the APK:"
-          unzip -l "dist/$NAME" | grep -E 'lib/[^/]+/lib(resonix_native|oboe|c\+\+_shared)\.so' || true
+          unzip -l "dist/$NAME" | grep -E 'lib/[^/]+/lib(resonix_native|oboe|ffmpegJNI|c\+\+_shared)\.so' || true
           if ! unzip -l "dist/$NAME" | grep -q 'libresonix_native\.so'; then
             echo "::error::libresonix_native.so is missing from the APK (the NDK/CMake step did not run)."
             exit 1
           fi
 
+          if unzip -l "dist/$NAME" | grep -q 'libffmpegJNI\.so'; then FFMPEG_NOTE="included"; else FFMPEG_NOTE="not included"; fi
           SIZE="$(du -h "dist/$NAME" | cut -f1)"
           SHA="$(sha256sum "dist/$NAME" | cut -d' ' -f1)"
           {
@@ -145,6 +207,7 @@ jobs:
             echo "| Size | $SIZE |"
             echo "| SHA-256 | \`$SHA\` |"
             echo "| Commit | \`${GITHUB_SHA::7}\` |"
+            echo "| FFmpeg decoders | $FFMPEG_NOTE |"
             echo ""
             echo "Install from a computer: \`adb connect <TV-IP>:5555\` then \`adb install -r $NAME\`"
           } >> "$GITHUB_STEP_SUMMARY"

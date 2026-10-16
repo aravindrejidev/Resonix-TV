@@ -2,6 +2,7 @@
 
 # JNI bridge: native code resolves these by name.
 -keep class com.resonix.tv.audio.NativeBridge { *; }
+-keep class com.resonix.tv.audio.DspNative { *; }
 -keepclasseswithmembernames class * {
     native <methods>;
 }

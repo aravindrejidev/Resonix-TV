@@ -17,5 +17,7 @@ captures/
 *.jks
 *.keystore
 
-# FFmpeg static libraries are built in CI (module 3) and never committed
-/third_party/ffmpeg/
+
+# Fetched / built by scripts/setup_ffmpeg.sh in CI (Media3 decoder_ffmpeg + FFmpeg libs)
+/third_party/media3-ffmpeg/
+/app/src/main/java/androidx/media3/decoder/ffmpeg/
