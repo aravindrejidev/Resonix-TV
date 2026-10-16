@@ -2,6 +2,7 @@ package com.resonix.tv
 
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.TextStyle
@@ -33,14 +35,18 @@ import com.resonix.tv.audio.NativeBridge
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.FfmpegInfo
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
  * Diagnostics screen (modules 1 + 3): proves that the TV launcher entry, the native library
- * (Oboe), the DSP engine, the FFmpeg decoders and the remote-control key mapping all work.
+ * (Oboe), the DSP engine, the FFmpeg decoders and the remote-control keys all work.
  * The real UI replaces BootScreen in module 4.
  */
 class MainActivity : ComponentActivity() {
+
+    private var activityKey by mutableStateOf("Press any remote key")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -48,18 +54,31 @@ class MainActivity : ComponentActivity() {
             .getOrElse { "Native engine unavailable (${it.javaClass.simpleName})" }
         val ffmpegInfo = FfmpegInfo.describe()
 
-        setContent { BootScreen(nativeInfo, ffmpegInfo) }
+        setContent { BootScreen(nativeInfo, ffmpegInfo, activityKey) }
+    }
+
+    /** Sees every key press, no matter which Compose element (if any) currently has focus. */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            val mapped = RemoteKey.fromKeyCode(event.keyCode)
+            val name = KeyEvent.keyCodeToString(event.keyCode)
+            activityKey = "Activity key: $name (${event.keyCode}) " +
+                if (mapped != null) "-> ${mapped.name}" else "(not mapped)"
+            Log.i("ResonixKeys", activityKey)
+        }
+        return super.dispatchKeyEvent(event)
     }
 }
 
 private fun infoStyle(color: Color) = TextStyle(color = color, fontSize = 20.sp)
 
 @Composable
-private fun BootScreen(nativeInfo: String, ffmpegInfo: String) {
+private fun BootScreen(nativeInfo: String, ffmpegInfo: String, activityKey: String) {
     val focusRequester = remember { FocusRequester() }
-    var lastKey by remember { mutableStateOf("Press any remote key") }
+    var hasFocus by remember { mutableStateOf(false) }
+    var composeKey by remember { mutableStateOf("-") }
 
-    // The DSP self-test runs on this device, off the UI thread (a few tens of milliseconds).
+    // The DSP self-test runs on this device, off the UI thread.
     val dspSummary by produceState(initialValue = "DSP self-test: running...") {
         value = withContext(Dispatchers.Default) {
             runCatching {
@@ -70,16 +89,25 @@ private fun BootScreen(nativeInfo: String, ffmpegInfo: String) {
         }
     }
 
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    // On a TV focus is not always available right at start-up: retry until Compose reports it.
+    LaunchedEffect(Unit) {
+        var attempts = 0
+        while (!hasFocus && attempts < 10) {
+            runCatching { focusRequester.requestFocus() }
+            delay(250)
+            attempts++
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF121418))
             .focusRequester(focusRequester)
+            .onFocusChanged { hasFocus = it.isFocused }
             .onPreviewKeyEvent { event ->
                 val key = RemoteKey.from(event) ?: return@onPreviewKeyEvent false
-                lastKey = "Last key: ${key.name}"
+                composeKey = key.name
                 // Let BACK fall through so the app can still be closed.
                 key != RemoteKey.BACK
             }
@@ -106,8 +134,12 @@ private fun BootScreen(nativeInfo: String, ffmpegInfo: String) {
             )
             BasicText(text = ffmpegInfo, style = infoStyle(grey))
             BasicText(
-                text = lastKey,
+                text = activityKey,
                 style = TextStyle(color = Color(0xFFE6E8EC), fontSize = 24.sp),
+            )
+            BasicText(
+                text = "Compose: focus " + (if (hasFocus) "yes" else "NO") + " | key " + composeKey,
+                style = infoStyle(if (hasFocus) grey else Color(0xFFFFB74D)),
             )
         }
     }

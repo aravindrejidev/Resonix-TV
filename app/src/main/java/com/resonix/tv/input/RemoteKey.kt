@@ -1,5 +1,6 @@
 package com.resonix.tv.input
 
+import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -16,6 +17,30 @@ enum class RemoteKey {
     CHANNEL_UP, CHANNEL_DOWN;
 
     companion object {
+        /** Maps a raw Android key code (Activity level - works whatever Compose has focused). */
+        fun fromKeyCode(keyCode: Int): RemoteKey? = when (keyCode) {
+            AndroidKeyEvent.KEYCODE_DPAD_CENTER,
+            AndroidKeyEvent.KEYCODE_ENTER,
+            AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> SELECT
+            AndroidKeyEvent.KEYCODE_DPAD_UP -> UP
+            AndroidKeyEvent.KEYCODE_DPAD_DOWN -> DOWN
+            AndroidKeyEvent.KEYCODE_DPAD_LEFT -> LEFT
+            AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> RIGHT
+            AndroidKeyEvent.KEYCODE_BACK, AndroidKeyEvent.KEYCODE_ESCAPE -> BACK
+            AndroidKeyEvent.KEYCODE_MENU -> MENU
+            AndroidKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> PLAY_PAUSE
+            AndroidKeyEvent.KEYCODE_MEDIA_PLAY -> PLAY
+            AndroidKeyEvent.KEYCODE_MEDIA_PAUSE -> PAUSE
+            AndroidKeyEvent.KEYCODE_MEDIA_STOP -> STOP
+            AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> FAST_FORWARD
+            AndroidKeyEvent.KEYCODE_MEDIA_REWIND -> REWIND
+            AndroidKeyEvent.KEYCODE_MEDIA_NEXT -> NEXT
+            AndroidKeyEvent.KEYCODE_MEDIA_PREVIOUS -> PREVIOUS
+            AndroidKeyEvent.KEYCODE_CHANNEL_UP -> CHANNEL_UP
+            AndroidKeyEvent.KEYCODE_CHANNEL_DOWN -> CHANNEL_DOWN
+            else -> null
+        }
+
         /** Maps a Compose key event to a [RemoteKey]. Only key-down events are mapped. */
         fun from(event: KeyEvent): RemoteKey? {
             if (event.type != KeyEventType.KeyDown) return null
