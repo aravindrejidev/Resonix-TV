@@ -56,13 +56,13 @@ class DspController(
     }
 
     // ---- equalizer ----
-    fun setEqEnabled(on: Boolean) {
+    fun enableEq(on: Boolean) {
         eqEnabled = on
         engine.setEqEnabled(on)
         changed()
     }
 
-    fun toggleEq() = setEqEnabled(!eqEnabled)
+    fun toggleEq() = enableEq(!eqEnabled)
 
     fun adjustBand(index: Int, delta: Float) {
         if (index !in bands.indices) return

@@ -276,7 +276,7 @@ class AudioPanelController(
                 val step = if (repeat > 6) 1.0f else 0.5f
                 val delta = if (key == RemoteKey.UP) step else -step
                 if (equalizer) {
-                    if (state.cursor == 0) dsp.setEqEnabled(key == RemoteKey.UP) else dsp.adjustBand(state.cursor - 1, delta)
+                    if (state.cursor == 0) dsp.enableEq(key == RemoteKey.UP) else dsp.adjustBand(state.cursor - 1, delta)
                 } else {
                     if (state.cursor == 0) dsp.adjustMaster(delta) else dsp.adjustChannel(state.cursor - 1, delta)
                 }
