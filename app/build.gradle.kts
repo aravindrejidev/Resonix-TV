@@ -15,8 +15,8 @@ android {
         applicationId = "com.resonix.tv"
         minSdk = 26 // Android 8.0 - AAudio is available for Oboe
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1 // newer CI build = higher code
+        versionName = "0.2.0"
 
         ndk {
             // ABIs come from gradle.properties (resonix.abis) so CI can build a single ABI quickly.
@@ -66,6 +66,17 @@ android {
         }
     }
 
+    signingConfigs {
+        // One fixed debug key (public, password "android") for every build, so a new CI build
+        // installs over the previous one without uninstalling it first.
+        getByName("debug") {
+            storeFile = rootProject.file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // R8 on, but signed with the debug key so the APK can be sideloaded directly.
@@ -97,6 +108,7 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.animation)
 
     // Compose for TV
     implementation(libs.androidx.tv.material)

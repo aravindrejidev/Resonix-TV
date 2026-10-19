@@ -16,6 +16,7 @@ captures/
 *.aab
 *.jks
 *.keystore
+!keystore/debug.keystore
 
 
 # Fetched / built by scripts/setup_ffmpeg.sh in CI (Media3 decoder_ffmpeg + FFmpeg libs)

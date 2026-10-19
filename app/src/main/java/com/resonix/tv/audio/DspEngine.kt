@@ -1,6 +1,12 @@
 package com.resonix.tv.audio
 
 import java.nio.ByteBuffer
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** PCM format currently flowing through the DSP (channelCount 0 = nothing played yet). */
+data class StreamFormat(val sampleRate: Int, val channelCount: Int, val floatPcm: Boolean)
 
 /**
  * Kotlin face of the C++ DSP chain:  per-channel gain / mute / solo  ->  parametric EQ  ->
@@ -20,6 +26,11 @@ class DspEngine {
 
     val isReady: Boolean get() = handle != 0L
 
+    private val formatState = MutableStateFlow(StreamFormat(0, 0, false))
+
+    /** Updates whenever the player starts a stream with a different PCM format. */
+    val format: StateFlow<StreamFormat> = formatState.asStateFlow()
+
     /** Called by the audio processor whenever the PCM format changes. */
     fun configure(sampleRate: Int, channelCount: Int, floatPcm: Boolean): Boolean {
         val h = handle
@@ -27,6 +38,7 @@ class DspEngine {
         this.sampleRate = sampleRate
         this.channelCount = channelCount
         this.isFloat = floatPcm
+        formatState.value = StreamFormat(sampleRate, channelCount, floatPcm)
         return true
     }
 
