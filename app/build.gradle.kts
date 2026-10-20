@@ -16,7 +16,10 @@ android {
         minSdk = 26 // Android 8.0 - AAudio is available for Oboe
         targetSdk = 36
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1 // newer CI build = higher code
-        versionName = "0.2.0"
+        // The version is typed in when the workflow is started (-PappVersion=...).
+        versionName = providers.gradleProperty("appVersion").orElse("0.0.0-dev").get()
+        // "owner/repo" of the GitHub repository that built this APK: the in-app updater looks there.
+        buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: ""}\"")
 
         ndk {
             // ABIs come from gradle.properties (resonix.abis) so CI can build a single ABI quickly.

@@ -10,22 +10,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.resonix.tv.data.MediaLibrary
+import com.resonix.tv.player.PlayRequest
+import com.resonix.tv.ui.browser.BrowserScreen
 import com.resonix.tv.ui.diagnostics.DiagnosticsScreen
 import com.resonix.tv.ui.home.HomeScreen
 import com.resonix.tv.ui.player.PlayerScreen
 import com.resonix.tv.ui.theme.NeoColors
+import com.resonix.tv.ui.update.UpdateScreen
+import com.resonix.tv.update.UpdateController
 
 sealed interface Screen {
     data object Home : Screen
-    data class Player(val uri: Uri, val title: String) : Screen
+    data object Browser : Screen
+    data class Player(val request: PlayRequest) : Screen
+    data object Updates : Screen
     data object Diagnostics : Screen
 }
 
-/** Root of the app: Home -> Player, plus the diagnostics page. */
+/** Root of the app: Home -> Browser / Player / Updates / Diagnostics. */
 @Composable
 fun ResonixApp(
     incomingUri: Uri?,
@@ -35,12 +42,17 @@ fun ResonixApp(
     activityKey: String,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+    val updates = remember { UpdateController(context.applicationContext, scope) }
+
+    // Quietly look for a newer version once per start.
+    LaunchedEffect(Unit) { updates.check() }
 
     // "Open with ResonixTV" from a file manager or browser.
     LaunchedEffect(incomingUri) {
         if (incomingUri != null) {
-            screen = Screen.Player(incomingUri, MediaLibrary.displayName(context, incomingUri))
+            screen = Screen.Player(PlayRequest(incomingUri, MediaLibrary.displayName(context, incomingUri)))
             onIncomingHandled()
         }
     }
@@ -48,12 +60,20 @@ fun ResonixApp(
     Box(Modifier.fillMaxSize().background(NeoColors.Background)) {
         when (val current = screen) {
             Screen.Home -> HomeScreen(
-                onPlay = { uri, title -> screen = Screen.Player(uri, title) },
+                updates = updates,
+                onPlay = { request -> screen = Screen.Player(request) },
+                onOpenBrowser = { screen = Screen.Browser },
+                onOpenUpdates = { screen = Screen.Updates },
                 onOpenDiagnostics = { screen = Screen.Diagnostics },
             )
-            is Screen.Player -> key(current.uri) {
-                PlayerScreen(current.uri, current.title, onExit = { screen = Screen.Home })
+            Screen.Browser -> BrowserScreen(
+                onPlay = { request -> screen = Screen.Player(request) },
+                onExit = { screen = Screen.Home },
+            )
+            is Screen.Player -> key(current.request.uri) {
+                PlayerScreen(current.request, onExit = { screen = Screen.Home })
             }
+            Screen.Updates -> UpdateScreen(updates = updates, onBack = { screen = Screen.Home })
             Screen.Diagnostics -> DiagnosticsScreen(
                 nativeInfo = nativeInfo,
                 ffmpegInfo = ffmpegInfo,

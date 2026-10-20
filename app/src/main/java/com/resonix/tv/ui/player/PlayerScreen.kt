@@ -1,6 +1,5 @@
 package com.resonix.tv.ui.player
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -41,6 +40,7 @@ import androidx.media3.ui.PlayerView
 import com.resonix.tv.audio.AudioPipeline
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
+import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.player.PlayerFactory
 import com.resonix.tv.ui.channelLayoutName
 import com.resonix.tv.ui.components.NeoText
@@ -94,8 +94,9 @@ fun selectTrack(player: Player, choice: TrackItem.Choice) {
  *   DOWN or MENU: audio panel          BACK: close panel, hide OSD, then leave
  */
 @Composable
-fun PlayerScreen(uri: Uri, title: String, onExit: () -> Unit) {
+fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     val context = LocalContext.current
+    val title = request.title
     val dsp = remember { AudioPipeline.controller(context) } // restores saved EQ/channel settings first
     val exo = remember { PlayerFactory.create(context) }
     val ui = remember(exo) { PlayerUiState(exo) }
@@ -130,8 +131,17 @@ fun PlayerScreen(uri: Uri, title: String, onExit: () -> Unit) {
         }
     }
 
-    LaunchedEffect(uri) {
-        exo.setMediaItem(MediaItem.fromUri(uri))
+    LaunchedEffect(request) {
+        val subtitles = request.subtitles.mapIndexed { index, source ->
+            MediaItem.SubtitleConfiguration.Builder(source.uri)
+                .setMimeType(source.mimeType)
+                .setLabel(source.label)
+                .setSelectionFlags(if (index == 0) C.SELECTION_FLAG_DEFAULT else 0)
+                .build()
+        }
+        exo.setMediaItem(
+            MediaItem.Builder().setUri(request.uri).setSubtitleConfigurations(subtitles).build(),
+        )
         exo.prepare()
         exo.playWhenReady = true
     }
