@@ -57,6 +57,12 @@ object StorageRoots {
     }
 }
 
+/** A storage device with its capacity, for the Home cards. */
+data class StorageInfo(val root: StorageRoot, val totalBytes: Long, val freeBytes: Long)
+
+fun StorageRoots.listWithUsage(context: Context): List<StorageInfo> =
+    list(context).map { StorageInfo(it, it.path.totalSpace, it.path.freeSpace) }
+
 data class BrowserEntry(val file: File, val isDir: Boolean, val sizeBytes: Long)
 
 object FileBrowser {
@@ -87,6 +93,12 @@ object FileBrowser {
         }
         result.sortWith(compareBy<BrowserEntry>({ !it.isDir }, { it.file.name.lowercase() }))
         return result
+    }
+
+    /** Same as [findSubtitles] for a stored Uri (only file:// videos have side-car files). */
+    fun findSubtitlesFor(uri: Uri): List<SubtitleSource> {
+        val path = if (uri.scheme == "file") uri.path else null
+        return if (path != null) findSubtitles(File(path)) else emptyList()
     }
 
     /** Subtitle files next to the video whose name starts like the video ("Film.srt", "Film.en.srt"). */

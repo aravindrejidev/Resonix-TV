@@ -47,6 +47,7 @@ import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.ui.components.NeoChip
+import com.resonix.tv.ui.components.NeoIcon
 import com.resonix.tv.ui.components.NeoRow
 import com.resonix.tv.ui.components.NeoText
 import com.resonix.tv.ui.formatSize
@@ -90,7 +91,7 @@ private fun openAllFilesSettings(context: Context) {
  *   UP / DOWN move (hold = faster)    OK or RIGHT open / play    LEFT or BACK one level up
  */
 @Composable
-fun BrowserScreen(onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
+fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("resonix_ui", Context.MODE_PRIVATE) }
@@ -101,7 +102,10 @@ fun BrowserScreen(onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
     var allFiles by remember { mutableStateOf(allFilesAccess()) }
     var roots by remember { mutableStateOf<List<StorageRoot>>(emptyList()) }
     var dir by remember {
-        mutableStateOf(prefs.getString("last_dir", null)?.let { File(it) }?.takeIf { it.isDirectory })
+        mutableStateOf(
+            startDir?.takeIf { it.isDirectory }
+                ?: prefs.getString("last_dir", null)?.let { File(it) }?.takeIf { it.isDirectory },
+        )
     }
     var entries by remember { mutableStateOf<List<BrowserEntry>?>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
@@ -124,9 +128,9 @@ fun BrowserScreen(onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
     }
 
     LaunchedEffect(dir, hasPermission, allFiles) {
+        roots = withContext(Dispatchers.IO) { StorageRoots.list(context) }
         val folder = dir
         if (folder == null) {
-            roots = withContext(Dispatchers.IO) { StorageRoots.list(context) }
             entries = emptyList()
         } else {
             loading = true
@@ -163,7 +167,8 @@ fun BrowserScreen(onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
             return
         }
         val parent = folder.parentFile
-        val atRoot = parent == null || roots.any { it.path == folder }
+        val underRoot = roots.any { folder.path.startsWith(it.path.path) }
+        val atRoot = parent == null || !underRoot || roots.any { it.path == folder }
         enter(if (atRoot) null else parent)
     }
 
@@ -255,18 +260,20 @@ fun BrowserScreen(onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
             itemsIndexed(rows) { index, row ->
                 val focused = index == cursor
                 when (row) {
-                    BrowserRow.Grant -> NeoRow("Allow access to files", "Needed to list folders and media files", focused)
+                    BrowserRow.Grant -> NeoRow("Allow access to files", "Needed to list folders and media files", focused, icon = NeoIcon.INFO)
                     BrowserRow.AllFiles -> NeoRow(
                         "Enable All files access",
                         "Optional: shows every file (for example subtitles). Opens Android settings",
                         focused,
+                        icon = NeoIcon.SETTINGS,
                     )
-                    is BrowserRow.Volume -> NeoRow(row.root.label, row.root.path.path, focused)
+                    is BrowserRow.Volume -> NeoRow(row.root.label, row.root.path.path, focused, icon = NeoIcon.DRIVE)
                     is BrowserRow.Item -> NeoRow(
                         title = row.entry.file.name,
                         subtitle = if (row.entry.isDir) "Folder" else formatSize(row.entry.sizeBytes),
                         focused = focused,
                         marker = if (row.entry.isDir) "OPEN" else null,
+                        icon = if (row.entry.isDir) NeoIcon.FOLDER else NeoIcon.VIDEO,
                     )
                 }
             }

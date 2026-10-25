@@ -22,6 +22,8 @@ class DspController(
         private set
     var presetName by mutableStateOf<String?>("Flat")
         private set
+    var processingEnabled by mutableStateOf(true)
+        private set
 
     val channelDb = mutableStateListOf<Float>().apply { repeat(MAX_CH) { add(0f) } }
     val channelMute = mutableStateListOf<Boolean>().apply { repeat(MAX_CH) { add(false) } }
@@ -99,6 +101,13 @@ class DspController(
 
     fun resetAll() = applyPreset(DspPresets.FLAT)
 
+    /** Master switch for the whole chain (channel gains + EQ). Off = audio passes through untouched. */
+    fun setProcessing(on: Boolean) {
+        processingEnabled = on
+        engine.setBypass(!on)
+        save()
+    }
+
     // ---- plumbing ----
     private fun changed() {
         presetName = null // no longer exactly a preset
@@ -110,6 +119,7 @@ class DspController(
     private fun pushAll() {
         engine.setMasterGainDb(masterDb)
         engine.setEqEnabled(eqEnabled)
+        engine.setBypass(!processingEnabled)
         for (i in 0 until MAX_CH) {
             engine.setChannelGainDb(i, channelDb[i])
             engine.setChannelMute(i, channelMute[i])
@@ -120,6 +130,7 @@ class DspController(
     private fun load() {
         masterDb = prefs.getFloat("master", 0f)
         eqEnabled = prefs.getBoolean("eq", true)
+        processingEnabled = prefs.getBoolean("processing", true)
         val savedPreset = prefs.getString("preset", "Flat") ?: ""
         presetName = savedPreset.ifEmpty { null }
         for (i in 0 until MAX_CH) {
@@ -143,6 +154,7 @@ class DspController(
         val e = prefs.edit()
         e.putFloat("master", masterDb)
         e.putBoolean("eq", eqEnabled)
+        e.putBoolean("processing", processingEnabled)
         e.putString("preset", presetName ?: "")
         for (i in 0 until MAX_CH) {
             e.putFloat("ch${i}_db", channelDb[i])

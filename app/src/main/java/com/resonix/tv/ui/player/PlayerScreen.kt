@@ -38,6 +38,8 @@ import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.resonix.tv.audio.AudioPipeline
+import com.resonix.tv.data.HistoryStore
+import com.resonix.tv.data.SettingsStore
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.PlayRequest
@@ -57,10 +59,10 @@ import com.resonix.tv.ui.theme.neuRaised
 import kotlin.math.log10
 import kotlinx.coroutines.delay
 
-/** One tap = 10 s; while the key is held, every 5th repeat jumps 30 s. */
-private fun seekStep(repeat: Int): Long = when {
-    repeat == 0 -> 10_000L
-    repeat % 5 == 0 -> 30_000L
+/** One tap = the step from Settings; while the key is held, every 5th repeat jumps three steps. */
+private fun seekStep(repeat: Int, baseMs: Long): Long = when {
+    repeat == 0 -> baseMs
+    repeat % 5 == 0 -> baseMs * 3
     else -> 0L
 }
 
@@ -97,6 +99,9 @@ fun selectTrack(player: Player, choice: TrackItem.Choice) {
 fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     val context = LocalContext.current
     val title = request.title
+    val uriKey = request.uri.toString()
+    val settings = remember { SettingsStore.get(context) }
+    val history = remember { HistoryStore.get(context) }
     val dsp = remember { AudioPipeline.controller(context) } // restores saved EQ/channel settings first
     val exo = remember { PlayerFactory.create(context) }
     val ui = remember(exo) { PlayerUiState(exo) }
@@ -126,21 +131,41 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     DisposableEffect(exo) {
         ui.attach()
         onDispose {
+            if (ui.durationMs > 0 && ui.positionMs > 3_000) {
+                history.record(uriKey, title, ui.positionMs, ui.durationMs)
+            }
             ui.detach()
             exo.release()
         }
     }
 
+    // Remember how far you got (Home > Recently Watched), every 5 seconds.
+    LaunchedEffect(exo) {
+        while (true) {
+            delay(5000)
+            if (ui.durationMs > 0 && ui.positionMs > 3_000) {
+                history.record(uriKey, title, ui.positionMs, ui.durationMs)
+            }
+        }
+    }
+
     LaunchedEffect(request) {
+        val saved = history.find(uriKey)
+        val startMs = if (settings.resumePlayback && saved != null && saved.positionMs > 5_000 && saved.progress < 0.95f) {
+            saved.positionMs
+        } else {
+            0L
+        }
         val subtitles = request.subtitles.mapIndexed { index, source ->
             MediaItem.SubtitleConfiguration.Builder(source.uri)
                 .setMimeType(source.mimeType)
                 .setLabel(source.label)
-                .setSelectionFlags(if (index == 0) C.SELECTION_FLAG_DEFAULT else 0)
+                .setSelectionFlags(if (index == 0 && settings.autoSubtitles) C.SELECTION_FLAG_DEFAULT else 0)
                 .build()
         }
         exo.setMediaItem(
             MediaItem.Builder().setUri(request.uri).setSubtitleConfigurations(subtitles).build(),
+            startMs,
         )
         exo.prepare()
         exo.playWhenReady = true
@@ -162,7 +187,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     // OSD hides itself 4 s after the last key press while playing.
     LaunchedEffect(osdTick, osdVisible, ui.isPlaying, panel.open) {
         if (osdVisible && ui.isPlaying && !panel.open) {
-            delay(4000)
+            delay(settings.osdSeconds * 1000L)
             osdVisible = false
         }
     }
@@ -203,12 +228,12 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
                     true
                 }
                 RemoteKey.LEFT, RemoteKey.REWIND -> {
-                    seekBy(exo, -seekStep(repeat))
+                    seekBy(exo, -seekStep(repeat, settings.seekStepSec * 1000L))
                     poke()
                     true
                 }
                 RemoteKey.RIGHT, RemoteKey.FAST_FORWARD -> {
-                    seekBy(exo, seekStep(repeat))
+                    seekBy(exo, seekStep(repeat, settings.seekStepSec * 1000L))
                     poke()
                     true
                 }

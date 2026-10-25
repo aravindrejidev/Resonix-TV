@@ -59,6 +59,7 @@ fun NeoRow(
     focused: Boolean,
     modifier: Modifier = Modifier,
     marker: String? = null,
+    icon: NeoIcon? = null,
 ) {
     Row(
         modifier = modifier
@@ -68,6 +69,10 @@ fun NeoRow(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            NeoIconTile(icon, NeoColors.Cyan, tileSize = 40.dp)
+            Spacer(Modifier.width(16.dp))
+        }
         Column(Modifier.weight(1f)) {
             NeoText(
                 text = title,

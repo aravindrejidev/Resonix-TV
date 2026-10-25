@@ -29,6 +29,8 @@ object NeoColors {
     val TextDim = Color(0xFF5C6370)
     val Warning = Color(0xFFFFB74D)
     val Danger = Color(0xFFFF5252)
+    val Purple = Color(0xFF9B5CFF)
+    val Pink = Color(0xFFE05CFF)
 }
 
 fun neoText(
@@ -90,14 +92,14 @@ fun Modifier.neuInset(corner: Dp = 12.dp): Modifier = drawBehind {
     )
 }
 
-/** Neon cyan glow + outline that marks the D-pad cursor. */
-fun Modifier.neuFocusRing(visible: Boolean, corner: Dp = 18.dp): Modifier =
+/** Neon glow + outline that marks the D-pad cursor (cyan by default). */
+fun Modifier.neuFocusRing(visible: Boolean, corner: Dp = 18.dp, color: Color = NeoColors.Cyan): Modifier =
     if (!visible) this else drawBehind {
         val c = corner.toPx()
         for (i in 4 downTo 1) {
             val g = i * 3.dp.toPx()
             drawRoundRect(
-                color = NeoColors.Cyan.copy(alpha = 0.07f * (5 - i)),
+                color = color.copy(alpha = 0.07f * (5 - i)),
                 topLeft = Offset(-g, -g),
                 size = Size(size.width + 2 * g, size.height + 2 * g),
                 cornerRadius = CornerRadius(c + g),
@@ -105,8 +107,34 @@ fun Modifier.neuFocusRing(visible: Boolean, corner: Dp = 18.dp): Modifier =
             )
         }
         drawRoundRect(
-            color = NeoColors.Cyan,
+            color = color,
             cornerRadius = CornerRadius(c),
             style = Stroke(width = 2.dp.toPx()),
         )
     }
+
+/** Obsidian background with soft blue / violet glows in two corners. */
+fun Modifier.neoBackground(): Modifier = drawBehind {
+    drawRect(NeoColors.Background)
+    val glowRadius = size.width * 0.5f
+    val topRight = Offset(size.width * 0.96f, -size.height * 0.08f)
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x551E5BFF), Color.Transparent),
+            center = topRight,
+            radius = glowRadius,
+        ),
+        radius = glowRadius,
+        center = topRight,
+    )
+    val bottomLeft = Offset(size.width * 0.02f, size.height * 1.05f)
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x405B3BFF), Color.Transparent),
+            center = bottomLeft,
+            radius = glowRadius * 0.8f,
+        ),
+        radius = glowRadius * 0.8f,
+        center = bottomLeft,
+    )
+}

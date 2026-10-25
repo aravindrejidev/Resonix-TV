@@ -1,13 +1,13 @@
 package com.resonix.tv.ui
 
 import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -18,21 +18,22 @@ import com.resonix.tv.data.MediaLibrary
 import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.ui.browser.BrowserScreen
 import com.resonix.tv.ui.diagnostics.DiagnosticsScreen
-import com.resonix.tv.ui.home.HomeScreen
+import com.resonix.tv.ui.history.HistoryScreen
 import com.resonix.tv.ui.player.PlayerScreen
-import com.resonix.tv.ui.theme.NeoColors
-import com.resonix.tv.ui.update.UpdateScreen
+import com.resonix.tv.ui.shell.MainShell
+import com.resonix.tv.ui.shell.Section
+import com.resonix.tv.ui.theme.neoBackground
 import com.resonix.tv.update.UpdateController
+import java.io.File
 
-sealed interface Screen {
-    data object Home : Screen
-    data object Browser : Screen
-    data class Player(val request: PlayRequest) : Screen
-    data object Updates : Screen
-    data object Diagnostics : Screen
+/** Full-screen pages that open on top of the main shell. BACK returns to the page below. */
+sealed interface Overlay {
+    data class Browser(val startDir: File?) : Overlay
+    data object History : Overlay
+    data class Player(val request: PlayRequest) : Overlay
+    data object Diagnostics : Overlay
 }
 
-/** Root of the app: Home -> Browser / Player / Updates / Diagnostics. */
 @Composable
 fun ResonixApp(
     incomingUri: Uri?,
@@ -43,8 +44,17 @@ fun ResonixApp(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var screen by remember { mutableStateOf<Screen>(Screen.Home) }
     val updates = remember { UpdateController(context.applicationContext, scope) }
+    var section by remember { mutableStateOf(Section.HOME) }
+    val stack = remember { mutableStateListOf<Overlay>() }
+
+    fun push(overlay: Overlay) {
+        stack.add(overlay)
+    }
+
+    fun pop() {
+        if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex)
+    }
 
     // Quietly look for a newer version once per start.
     LaunchedEffect(Unit) { updates.check() }
@@ -52,33 +62,42 @@ fun ResonixApp(
     // "Open with ResonixTV" from a file manager or browser.
     LaunchedEffect(incomingUri) {
         if (incomingUri != null) {
-            screen = Screen.Player(PlayRequest(incomingUri, MediaLibrary.displayName(context, incomingUri)))
+            stack.clear()
+            stack.add(Overlay.Player(PlayRequest(incomingUri, MediaLibrary.displayName(context, incomingUri))))
             onIncomingHandled()
         }
     }
 
-    Box(Modifier.fillMaxSize().background(NeoColors.Background)) {
-        when (val current = screen) {
-            Screen.Home -> HomeScreen(
+    Box(Modifier.fillMaxSize().neoBackground()) {
+        when (val top = stack.lastOrNull()) {
+            null -> MainShell(
+                section = section,
+                onSectionChange = { section = it },
                 updates = updates,
-                onPlay = { request -> screen = Screen.Player(request) },
-                onOpenBrowser = { screen = Screen.Browser },
-                onOpenUpdates = { screen = Screen.Updates },
-                onOpenDiagnostics = { screen = Screen.Diagnostics },
+                onOpenBrowser = { dir -> push(Overlay.Browser(dir)) },
+                onOpenHistory = { push(Overlay.History) },
+                onPlay = { request -> push(Overlay.Player(request)) },
+                onOpenDiagnostics = { push(Overlay.Diagnostics) },
             )
-            Screen.Browser -> BrowserScreen(
-                onPlay = { request -> screen = Screen.Player(request) },
-                onExit = { screen = Screen.Home },
-            )
-            is Screen.Player -> key(current.request.uri) {
-                PlayerScreen(current.request, onExit = { screen = Screen.Home })
+            is Overlay.Browser -> key(top) {
+                BrowserScreen(
+                    startDir = top.startDir,
+                    onPlay = { request -> push(Overlay.Player(request)) },
+                    onExit = { pop() },
+                )
             }
-            Screen.Updates -> UpdateScreen(updates = updates, onBack = { screen = Screen.Home })
-            Screen.Diagnostics -> DiagnosticsScreen(
+            Overlay.History -> HistoryScreen(
+                onPlay = { request -> push(Overlay.Player(request)) },
+                onExit = { pop() },
+            )
+            is Overlay.Player -> key(top.request.uri) {
+                PlayerScreen(top.request, onExit = { pop() })
+            }
+            Overlay.Diagnostics -> DiagnosticsScreen(
                 nativeInfo = nativeInfo,
                 ffmpegInfo = ffmpegInfo,
                 activityKey = activityKey,
-                onBack = { screen = Screen.Home },
+                onBack = { pop() },
             )
         }
     }
