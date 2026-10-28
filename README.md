@@ -179,10 +179,10 @@ Both are saved separately. Switching between them never erases the other one.
 
 <div align="center">
 
-<a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases/latest" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/android/cozy.svg" alt="Download for Android" height="55"/></a>
-<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/YOUR_USERNAME/Resonix-TV" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Obtainium-Auto_Updates-purple?style=for-the-badge&logo=android" height="40" alt="Add to Obtainium"/></a>
+<a href="https://github.com/aravindrejidev/Resonix-TV/releases/latest" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/android/cozy.svg" alt="Download for Android" height="55"/></a>
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/aravindrejidev/Resonix-TV" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Obtainium-Auto_Updates-purple?style=for-the-badge&logo=android" height="40" alt="Add to Obtainium"/></a>
 
-Grab the latest signed APK from the [Releases](https://github.com/YOUR_USERNAME/Resonix-TV/releases) page. Android TV 8.0 (API 26) or newer is required.
+Grab the latest signed APK from the [Releases](https://github.com/aravindrejidev/Resonix-TV/releases) page. Android TV 8.0 (API 26) or newer is required.
 
 </div>
 
@@ -272,7 +272,7 @@ The repository has no Gradle wrapper; the CI uses a pinned Gradle version. You n
 - **NDK 28.2.13676358** and **CMake 3.22.1**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Resonix-TV.git
+git clone https://github.com/aravindrejidev/Resonix-TV.git
 cd Resonix-TV
 
 # Optional but recommended: build the FFmpeg audio decoders (Linux, takes a while the first time)
@@ -327,15 +327,15 @@ ResonixTV is free and open source, with no ads or subscriptions. If it made your
 
 - ⭐ **Starring** the repository
 - 📣 **Sharing** it with fellow home-cinema fans
-- 🐛 **Reporting** bugs and TVs that misbehave on the [issues page](https://github.com/YOUR_USERNAME/Resonix-TV/issues)
+- 🐛 **Reporting** bugs and TVs that misbehave on the [issues page](https://github.com/aravindrejidev/Resonix-TV/issues)
 
 <!-- Add your donation links here, for example Ko-fi or PayPal -->
 
 ### 📈 Star History
 
 <p align="center">
-  <a href="https://star-history.com/#YOUR_USERNAME/Resonix-TV&Date">
-    <img src="https://api.star-history.com/svg?repos=YOUR_USERNAME/Resonix-TV&type=Date&theme=dark" alt="Star History Chart" width="100%" />
+  <a href="https://star-history.com/#aravindrejidev/Resonix-TV&Date">
+    <img src="https://api.star-history.com/svg?repos=aravindrejidev/Resonix-TV&type=Date&theme=dark" alt="Star History Chart" width="100%" />
   </a>
 </p>
 
@@ -346,15 +346,15 @@ ResonixTV is free and open source, with no ads or subscriptions. If it made your
 
 Contributions are welcome, whether it's a bug fix, a new feature, or better wording.
 
-- Something not working on your TV? Open an [issue](https://github.com/YOUR_USERNAME/Resonix-TV/issues) with the TV or box model, the Android version, the file's audio format (for example *DTS 5.1*) and what you expected. The **Diagnostics** page in Settings shows most of this.
+- Something not working on your TV? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issues) with the TV or box model, the Android version, the file's audio format (for example *DTS 5.1*) and what you expected. The **Diagnostics** page in Settings shows most of this.
 - For bigger changes, open an issue first so we can talk it through.
 - Pull requests should build cleanly and keep the **DSP self-test** passing.
 
 ### 👥 Contributors
 
 <div align="center">
-  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=YOUR_USERNAME/Resonix-TV" alt="Contributors" />
+  <a href="https://github.com/aravindrejidev/Resonix-TV/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=aravindrejidev/Resonix-TV" alt="Contributors" />
   </a>
 </div>
 
