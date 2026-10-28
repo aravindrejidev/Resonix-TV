@@ -10,3 +10,8 @@
 # Media3 FFmpeg decoder extension (module 3). DefaultRenderersFactory creates it through
 # reflection, so it has to survive shrinking in release builds.
 -keep class androidx.media3.decoder.ffmpeg.** { *; }
+
+# Compile-time-only annotation libraries (used by the Media3 FFmpeg extension sources).
+-dontwarn org.checkerframework.**
+-dontwarn javax.annotation.**
+-dontwarn org.jetbrains.annotations.**

@@ -1,73 +1,54 @@
-# ResonixTV - build a debug APK on GitHub-hosted runners (modules 2 + 3).
+# ResonixTV - build the release APKs and publish them as a GitHub Release.
 #
-# Run it:  push to any branch, or  Actions tab > "Build debug APK" > Run workflow.
-# Result:  the APK is attached to the run (Artifacts section) as a plain .apk, no zip.
+# Run it:  Actions tab > "Release APK" > Run workflow > type the version (e.g. 1.0.4) > Run.
+# Result:  GitHub Release "v1.0.4" with one signed APK per CPU type and a universal APK.
+#          The in-app updater (Settings > Update) picks the right file for the TV by itself.
 #
-# Releasing: Run workflow, type a version (e.g. 0.3.0) and tick "publish_release". That version
-# is built into the APK and published as GitHub Release v0.3.0; the app's built-in updater
-# (Home > Updates) finds it, downloads it and installs it.
+# Needs a PUBLIC repository (the app downloads updates without a login).
+# Running the same version again replaces that release.
 #
 # Keep these in sync with the project:
 #   Gradle 9.6.0       = minimum/default for AGP 9.4.0
 #   NDK, CMake         = app/build.gradle.kts (ndkVersion, externalNativeBuild.cmake.version)
 #   Build tools 36.0.0 = default for AGP 9.4.0
 
-name: Build debug APK
+name: Release APK
 
 on:
-  push:
-    branches: ["**"]
-    paths-ignore:
-      - "**.md"
   workflow_dispatch:
     inputs:
       version:
-        description: "App version, e.g. 0.3.0 (leave empty for a test build 0.0.<run number>)"
+        description: "Version number to release, for example 1.0.4  (the release is tagged v1.0.4)"
         type: string
-        default: ""
-      abis:
-        description: "CPU architectures to build"
-        type: choice
-        default: "arm64-v8a,armeabi-v7a"
-        options:
-          - "arm64-v8a,armeabi-v7a"
-          - "arm64-v8a"
-          - "armeabi-v7a"
-          - "arm64-v8a,armeabi-v7a,x86_64"
-      with_ffmpeg:
-        description: "Build the FFmpeg audio decoders (DTS, TrueHD, E-AC3 ...). The first run takes several minutes, later runs use the cache."
-        type: boolean
-        default: true
-      publish_release:
-        description: "Publish this version as a GitHub Release (the in-app updater installs it). Needs a version above."
-        type: boolean
-        default: false
+        required: true
 
 concurrency:
-  # A newer push cancels the older push build; manual runs are never cancelled by pushes.
-  group: build-apk-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  # Two releases never run at the same time, and a running release is never cancelled.
+  group: release-apk
+  cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write # create the release
 
 env:
   GRADLE_VERSION: "9.6.0"
   NDK_VERSION: "28.2.13676358"
   CMAKE_VERSION: "3.22.1"
   BUILD_TOOLS_VERSION: "36.0.0"
+  # One APK per entry (name of the file = ResonixTV-<version>-<abi>.apk), plus "universal" with all of them.
+  ALL_ABIS: "arm64-v8a armeabi-v7a x86_64 x86"
 
 jobs:
-  build:
-    name: Assemble debug APK
+  release:
+    name: Build and publish release
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    permissions:
-      contents: write # only used by the optional pre-release step
+    timeout-minutes: 120
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history + tags: needed for the "Changes" list of the release notes
 
       # The project may sit in a sub-folder if the ZIP was uploaded with its top folder.
       - name: Locate Gradle project
@@ -84,27 +65,21 @@ jobs:
           echo "MEDIA3_VERSION=$MEDIA3_VERSION" >> "$GITHUB_ENV"
           echo "Media3 version (from libs.versions.toml): $MEDIA3_VERSION"
 
-      # The version typed into "Run workflow" becomes the APK's versionName (and the release tag).
-      - name: Resolve app version
+      # The version typed into "Run workflow" becomes the APK's versionName and the release tag.
+      - name: Check the version number
         env:
           INPUT_VERSION: ${{ inputs.version }}
-          PUBLISH: ${{ inputs.publish_release }}
         run: |
-          if [ -n "$INPUT_VERSION" ]; then
-            if ! printf '%s' "$INPUT_VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,3}$'; then
-              echo "::error title=Invalid version::Use numbers separated by dots, for example 0.3.0 (got '$INPUT_VERSION')."
-              exit 1
-            fi
-            APP_VERSION="$INPUT_VERSION"
-          else
-            if [ "$PUBLISH" = "true" ]; then
-              echo "::error title=Version missing::Type a version (for example 0.3.0) to publish a release."
-              exit 1
-            fi
-            APP_VERSION="0.0.${GITHUB_RUN_NUMBER}"
+          VERSION="$(printf '%s' "$INPUT_VERSION" | tr -d '[:space:]')"
+          VERSION="${VERSION#v}"
+          VERSION="${VERSION#V}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,3}$'; then
+            echo "::error title=Invalid version::Use numbers separated by dots, for example 1.0.4 (got '$INPUT_VERSION')."
+            exit 1
           fi
-          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
-          echo "App version: $APP_VERSION"
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+          echo "Releasing version $VERSION (tag v$VERSION)"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -146,11 +121,10 @@ jobs:
           "$RUNNER_TEMP/dsp_selftest" | tee "$RUNNER_TEMP/dsp-selftest.txt"
           { echo '### DSP self-test'; echo '```'; cat "$RUNNER_TEMP/dsp-selftest.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
-      # FFmpeg audio decoders: built once, then restored from the cache. Best effort - if this
-      # fails the APK is still built (ExoPlayer then uses the TV's own MediaCodec decoders).
+      # FFmpeg audio decoders (DTS, TrueHD, E-AC3 ...): built once, then restored from the cache.
+      # A release is never published without them - if this step fails, the release stops here.
       - name: Restore FFmpeg decoder cache
         id: ffcache
-        if: github.event_name != 'workflow_dispatch' || inputs.with_ffmpeg
         uses: actions/cache/restore@v5
         with:
           path: |
@@ -159,9 +133,7 @@ jobs:
           key: ffmpeg-${{ runner.os }}-media3-${{ env.MEDIA3_VERSION }}-ndk${{ env.NDK_VERSION }}-${{ hashFiles('**/scripts/setup_ffmpeg.sh') }}
 
       - name: Build FFmpeg audio decoders (LGPL)
-        id: ffbuild
-        if: (github.event_name != 'workflow_dispatch' || inputs.with_ffmpeg) && steps.ffcache.outputs.cache-hit != 'true'
-        continue-on-error: true
+        if: steps.ffcache.outputs.cache-hit != 'true'
         shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -169,7 +141,7 @@ jobs:
           bash scripts/setup_ffmpeg.sh 2>&1 | tee "$RUNNER_TEMP/ffmpeg-build.log"
 
       - name: Save FFmpeg decoder cache
-        if: steps.ffbuild.outcome == 'success'
+        if: steps.ffcache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: |
@@ -177,114 +149,171 @@ jobs:
             ${{ env.PROJECT_DIR }}/app/src/main/java/androidx/media3/decoder/ffmpeg
           key: ffmpeg-${{ runner.os }}-media3-${{ env.MEDIA3_VERSION }}-ndk${{ env.NDK_VERSION }}-${{ hashFiles('**/scripts/setup_ffmpeg.sh') }}
 
-      - name: Report FFmpeg build failure
-        if: steps.ffbuild.outcome == 'failure'
-        run: |
-          echo "::warning title=FFmpeg build failed::The APK is built without FFmpeg decoders. See the job summary."
-          {
-            echo "### FFmpeg build failed (APK built without FFmpeg decoders)"
-            echo "Copy the block below when asking for help."
-            echo '```'
-            grep -iE 'error|fatal|not found|No such file' "$RUNNER_TEMP/ffmpeg-build.log" | head -n 15 || true
-            echo '---'
-            tail -n 25 "$RUNNER_TEMP/ffmpeg-build.log" || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Build debug APK
+      - name: Check FFmpeg decoders are in place
         shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
-        env:
-          ABIS: ${{ inputs.abis }}
         run: |
-          EXTRA=()
-          if [ -n "$ABIS" ]; then EXTRA+=("-Presonix.abis=$ABIS"); fi
-          EXTRA+=("-PappVersion=$APP_VERSION")
-          gradle assembleDebug --stacktrace --console=plain "${EXTRA[@]}" 2>&1 | tee "$RUNNER_TEMP/gradle-build.log"
+          ROOT="third_party/media3-ffmpeg/jni/ffmpeg/android-libs"
+          for abi in arm64-v8a armeabi-v7a; do
+            if [ ! -f "$ROOT/$abi/libavcodec.a" ]; then
+              echo "::error title=FFmpeg missing::FFmpeg decoders for $abi are missing, so the release was stopped."
+              exit 1
+            fi
+          done
+          for abi in $ALL_ABIS; do
+            if [ -f "$ROOT/$abi/libavcodec.a" ]; then echo "FFmpeg decoders: $abi ok"; else echo "::warning::No FFmpeg decoders for $abi - that APK will use the TV's own decoders only."; fi
+          done
 
-      - name: Collect and verify APK
-        id: apk
+      # One Gradle run with every CPU type (= the universal APK), then one run per CPU type.
+      # The compiled Kotlin code and the native libraries are reused, so the extra runs are quick.
+      - name: Build release APKs
+        shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          SRC="$(ls app/build/outputs/apk/debug/*.apk 2>/dev/null | head -n 1)"
-          if [ -z "$SRC" ]; then
-            echo "::error::Gradle finished but no debug APK was produced."
-            exit 1
-          fi
-
-          NAME="ResonixTV-${APP_VERSION}.apk"
           mkdir -p dist
-          cp "$SRC" "dist/$NAME"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          APK_DIR="app/build/outputs/apk/release"
 
-          echo "Native libraries inside the APK:"
-          unzip -l "dist/$NAME" | grep -E 'lib/[^/]+/lib(resonix_native|oboe|ffmpegJNI|c\+\+_shared)\.so' || true
-          if ! unzip -l "dist/$NAME" | grep -q 'libresonix_native\.so'; then
-            echo "::error::libresonix_native.so is missing from the APK (the NDK/CMake step did not run)."
-            exit 1
+          build_apk() {   # $1 = name part in the file name, $2 = comma separated CPU types
+            local label="$1" abis="$2"
+            echo "::group::assembleRelease - $label ($abis)"
+            rm -f "$APK_DIR"/*.apk
+            gradle assembleRelease --stacktrace --console=plain \
+              "-Presonix.abis=$abis" "-PappVersion=$APP_VERSION" 2>&1 | tee -a "$RUNNER_TEMP/gradle-build.log"
+            echo "::endgroup::"
+            local src
+            src="$(ls "$APK_DIR"/*.apk 2>/dev/null | head -n 1 || true)"
+            if [ -z "$src" ]; then
+              echo "::error::Gradle finished but no release APK was produced for $label."
+              exit 1
+            fi
+            cp "$src" "dist/ResonixTV-${APP_VERSION}-${label}.apk"
+          }
+
+          build_apk universal "$(echo "$ALL_ABIS" | tr ' ' ',')"
+          for abi in $ALL_ABIS; do
+            build_apk "$abi" "$abi"
+          done
+          ls -lh dist
+
+      # Every APK must be signed, carry the right version and contain exactly its own CPU type.
+      - name: Verify APKs
+        id: verify
+        shell: bash
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION"
+          if [ ! -x "$BT/apksigner" ]; then
+            BT="$(dirname "$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)")"
           fi
+          FF_ROOT="third_party/media3-ffmpeg/jni/ffmpeg/android-libs"
+          fail=0
 
-          if unzip -l "dist/$NAME" | grep -q 'libffmpegJNI\.so'; then FFMPEG_NOTE="included"; else FFMPEG_NOTE="not included"; fi
-          SIZE="$(du -h "dist/$NAME" | cut -f1)"
-          SHA="$(sha256sum "dist/$NAME" | cut -d' ' -f1)"
-          {
-            echo "### ResonixTV ${APP_VERSION} (build ${GITHUB_RUN_NUMBER})"
-            echo ""
-            echo "| | |"
-            echo "|---|---|"
-            echo "| File | \`$NAME\` |"
-            echo "| Size | $SIZE |"
-            echo "| SHA-256 | \`$SHA\` |"
-            echo "| Commit | \`${GITHUB_SHA::7}\` |"
-            echo "| FFmpeg decoders | $FFMPEG_NOTE |"
-            echo ""
-            echo "Install from a computer: \`adb connect <TV-IP>:5555\` then \`adb install -r $NAME\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          check_apk() {   # $1 = file, $2 = CPU types it must contain (space separated)
+            local f="$1" expected=" $2 " name badging libs abi
+            name="$(basename "$f")"
+            "$BT/apksigner" verify "$f" > /dev/null || { echo "::error::$name: signature check failed"; fail=1; }
+            badging="$("$BT/aapt2" dump badging "$f")"
+            grep -q "versionName='$APP_VERSION'" <<< "$badging" || { echo "::error::$name: wrong versionName"; fail=1; }
+            grep -q "name='com.resonix.tv'" <<< "$badging" || { echo "::error::$name: wrong package name"; fail=1; }
+            libs="$(unzip -Z1 "$f" | grep '^lib/' || true)"
+            for abi in $ALL_ABIS; do
+              if [[ "$expected" == *" $abi "* ]]; then
+                grep -q "^lib/$abi/libresonix_native.so$" <<< "$libs" || { echo "::error::$name: libresonix_native.so missing for $abi"; fail=1; }
+                if [ -f "$FF_ROOT/$abi/libavcodec.a" ]; then
+                  grep -q "^lib/$abi/libffmpegJNI.so$" <<< "$libs" || { echo "::error::$name: FFmpeg decoders missing for $abi"; fail=1; }
+                fi
+              elif grep -q "^lib/$abi/" <<< "$libs"; then
+                echo "::error::$name: contains $abi, which it should not"; fail=1
+              fi
+            done
+            echo "checked $name"
+          }
 
-      # archive: false = the artifact is the .apk itself (no zip to extract on the phone).
-      - name: Upload APK
-        uses: actions/upload-artifact@v7
-        with:
-          path: ${{ env.PROJECT_DIR }}/dist/${{ steps.apk.outputs.name }}
-          archive: false
-          if-no-files-found: error
-          retention-days: 30
+          check_apk "dist/ResonixTV-${APP_VERSION}-universal.apk" "$ALL_ABIS"
+          for abi in $ALL_ABIS; do
+            check_apk "dist/ResonixTV-${APP_VERSION}-${abi}.apk" "$abi"
+          done
+          [ "$fail" = "0" ] || exit 1
 
-      # Publishes GitHub Release "v<version>" with the APK. The in-app updater always looks for the
-      # newest release, so every version published here can be installed from inside the app.
-      # (Needs a public repository: the app downloads without a login.)
+          (cd dist && sha256sum ./*.apk | sed 's#\./##' > SHA256SUMS.txt)
+          cat dist/SHA256SUMS.txt
+
+      # Publishes GitHub Release "v<version>". The in-app updater always looks for the newest release.
       - name: Publish GitHub Release
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_release
+        shell: bash
         working-directory: ${{ env.PROJECT_DIR }}
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          APK_NAME: ${{ steps.apk.outputs.name }}
         run: |
-          TAG="v${APP_VERSION}"
-          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APK_NAME}"
-          SUBJECT="$(git log -1 --pretty=%s 2>/dev/null || true)"
-          printf 'Build #%s from commit %s\n\n%s\n' "$GITHUB_RUN_NUMBER" "${GITHUB_SHA::7}" "$SUBJECT" > "$RUNNER_TEMP/notes.md"
+          size_of() { du -h "dist/ResonixTV-${APP_VERSION}-$1.apk" | cut -f1; }
+
+          PREV="$(git tag --list 'v[0-9]*' --sort=-v:refname | grep -vx "$TAG" | head -n 1 || true)"
+          if [ -n "$PREV" ] && git merge-base --is-ancestor "$PREV" HEAD 2> /dev/null; then
+            RANGE="$PREV..HEAD"
+          else
+            RANGE="-n 15"
+          fi
+          CHANGES="$(git log $RANGE --no-merges --pretty='- %s' | head -n 40 || true)"
+
+          {
+            echo "## ResonixTV ${APP_VERSION}"
+            echo ""
+            echo "**Updating from inside the app?** Settings > Update picks the right file for your TV by itself."
+            echo ""
+            echo "**Installing by hand?** Download the file for your TV's processor. Not sure? Take \`universal\`."
+            echo ""
+            echo "| File | For | Size |"
+            echo "|---|---|---|"
+            echo "| \`ResonixTV-${APP_VERSION}-arm64-v8a.apk\` | Most Android TVs, boxes and streaming sticks (64-bit ARM) | $(size_of arm64-v8a) |"
+            echo "| \`ResonixTV-${APP_VERSION}-armeabi-v7a.apk\` | Older or cheaper TVs with a 32-bit system (32-bit ARM) | $(size_of armeabi-v7a) |"
+            echo "| \`ResonixTV-${APP_VERSION}-x86_64.apk\` | Intel / AMD devices, Android TV emulator | $(size_of x86_64) |"
+            echo "| \`ResonixTV-${APP_VERSION}-x86.apk\` | Old 32-bit Intel devices | $(size_of x86) |"
+            echo "| \`ResonixTV-${APP_VERSION}-universal.apk\` | Works on all of the above | $(size_of universal) |"
+            echo ""
+            echo "\`SHA256SUMS.txt\` lists the checksum of every file."
+            echo ""
+            echo "### Changes"
+            echo "${CHANGES:-- (no changes listed)}"
+            echo ""
+            echo "_Build #${GITHUB_RUN_NUMBER} from commit ${GITHUB_SHA::7}_"
+          } > "$RUNNER_TEMP/notes.md"
+
           gh release delete "$TAG" --cleanup-tag --yes || true
-          gh release create "$TAG" "dist/$APK_NAME" \
+          gh release create "$TAG" dist/*.apk dist/SHA256SUMS.txt \
             --target "$GITHUB_SHA" \
             --title "ResonixTV ${APP_VERSION}" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             --latest
-          echo "Published release ${TAG}: ${URL}" >> "$GITHUB_STEP_SUMMARY"
+
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+          {
+            echo "### Released ResonixTV ${APP_VERSION}"
+            echo ""
+            echo "$RELEASE_URL"
+            echo ""
+            echo "| File | Size |"
+            echo "|---|---|"
+            for f in dist/*.apk; do echo "| \`$(basename "$f")\` | $(du -h "$f" | cut -f1) |"; done
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Short, copy-friendly error digest on the run's summary page (handy on a phone).
       - name: Summarize errors
         if: failure()
         run: |
-          LOG="$RUNNER_TEMP/gradle-build.log"
-          [ -f "$LOG" ] || exit 0
           {
-            echo "### Build failed - key errors"
+            echo "### Release failed - key errors"
             echo "Copy the block below when asking for help."
             echo '```'
-            grep -E '^e: |CMake Error|error: |Could not (resolve|find)' "$LOG" | head -n 25 || true
-            echo '---'
-            sed -n '/^FAILURE: /,/^\* Try:/p' "$LOG" | head -n 40 || true
+            if [ -f "$RUNNER_TEMP/gradle-build.log" ]; then
+              grep -E '^e: |CMake Error|error: |Could not (resolve|find)|R8: |Missing class' "$RUNNER_TEMP/gradle-build.log" | head -n 25 || true
+              echo '---'
+              sed -n '/^FAILURE: /,/^\* Try:/p' "$RUNNER_TEMP/gradle-build.log" | head -n 40 || true
+            fi
+            if [ -f "$RUNNER_TEMP/ffmpeg-build.log" ]; then
+              echo '--- FFmpeg build ---'
+              grep -iE 'error|fatal|not found|No such file' "$RUNNER_TEMP/ffmpeg-build.log" | head -n 15 || true
+              tail -n 25 "$RUNNER_TEMP/ffmpeg-build.log" || true
+            fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

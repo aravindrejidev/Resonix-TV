@@ -304,7 +304,7 @@ class AudioPanelController(
                 val up = key == RemoteKey.UP
                 when (state.cursor) {
                     0 -> dsp.enableEq(up)
-                    1 -> dsp.setEqMode(if (up) EqMode.GRAPHIC else EqMode.PARAMETRIC)
+                    1 -> dsp.selectEqMode(if (up) EqMode.GRAPHIC else EqMode.PARAMETRIC)
                     else -> {
                         val step = if (repeat > 6) 1.0f else 0.5f
                         dsp.adjustBand(state.cursor - 2, if (up) step else -step)

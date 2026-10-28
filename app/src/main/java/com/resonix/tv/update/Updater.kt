@@ -3,6 +3,7 @@ package com.resonix.tv.update
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.resonix.tv.BuildConfig
@@ -11,6 +12,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class UpdateInfo(
@@ -34,8 +36,9 @@ sealed interface UpdateStatus {
 
 /**
  * Looks for the newest GitHub Release of the repository that built this APK
- * (BuildConfig.UPDATE_REPO), downloads its .apk and hands it to the system installer.
- * Works for public repositories (no token is stored in the app).
+ * (BuildConfig.UPDATE_REPO), downloads the .apk that fits this device and hands it to the system
+ * installer. A release holds one APK per CPU type (ResonixTV-1.2.3-arm64-v8a.apk ...) plus a
+ * "-universal.apk". Works for public repositories (no token is stored in the app).
  */
 object Updater {
     private const val USER_AGENT = "ResonixTV-Updater"
@@ -88,22 +91,33 @@ object Updater {
         val version = json.optString("tag_name").removePrefix("v").removePrefix("V")
         if (version.isBlank()) return UpdateStatus.Failed("The latest release has no version tag")
 
-        val assets = json.optJSONArray("assets")
-        var apkUrl = ""
-        var size = 0L
-        if (assets != null) {
-            for (i in 0 until assets.length()) {
-                val asset = assets.getJSONObject(i)
-                if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
-                    apkUrl = asset.optString("browser_download_url")
-                    size = asset.optLong("size")
-                    break
-                }
-            }
-        }
+        val apk = pickApk(json.optJSONArray("assets"))
+        val apkUrl = apk?.optString("browser_download_url").orEmpty()
+        val size = apk?.optLong("size") ?: 0L
         if (compareVersions(version, currentVersion) <= 0) return UpdateStatus.UpToDate
         if (apkUrl.isBlank()) return UpdateStatus.Failed("Release $version has no APK attached")
         return UpdateStatus.Available(UpdateInfo(version, json.optString("body"), apkUrl, size))
+    }
+
+    /**
+     * Chooses the APK for this device: the one built for its most preferred CPU type
+     * (Build.SUPPORTED_ABIS is sorted by preference), else the "-universal" one, else the first .apk.
+     */
+    private fun pickApk(assets: JSONArray?): JSONObject? {
+        if (assets == null) return null
+        val apks = ArrayList<JSONObject>()
+        for (i in 0 until assets.length()) {
+            val asset = assets.getJSONObject(i)
+            if (asset.optString("name").endsWith(".apk", ignoreCase = true)) apks.add(asset)
+        }
+        fun nameEndsWith(asset: JSONObject, suffix: String): Boolean =
+            asset.optString("name").lowercase().endsWith(suffix)
+
+        for (abi in Build.SUPPORTED_ABIS) {
+            val match = apks.firstOrNull { nameEndsWith(it, "-${abi.lowercase()}.apk") }
+            if (match != null) return match
+        }
+        return apks.firstOrNull { nameEndsWith(it, "-universal.apk") } ?: apks.firstOrNull()
     }
 
     /** Downloads the APK into cache/updates and checks that it really is a ResonixTV package. */

@@ -83,14 +83,14 @@ class DspController(
     fun toggleEq() = enableEq(!eqEnabled)
 
     /** Picks the graphic or the parametric EQ for playback (the other one stops processing). */
-    fun setEqMode(mode: EqMode) {
+    fun selectEqMode(mode: EqMode) {
         if (eqMode == mode) return
         eqMode = mode
         pushEqBands()
         changed()
     }
 
-    fun toggleEqMode() = setEqMode(if (eqMode == EqMode.GRAPHIC) EqMode.PARAMETRIC else EqMode.GRAPHIC)
+    fun toggleEqMode() = selectEqMode(if (eqMode == EqMode.GRAPHIC) EqMode.PARAMETRIC else EqMode.GRAPHIC)
 
     /** True when this EQ is switched on and is the one the audio engine runs. */
     fun isInUse(mode: EqMode): Boolean = eqEnabled && eqMode == mode

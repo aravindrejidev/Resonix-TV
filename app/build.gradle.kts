@@ -6,6 +6,18 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+/**
+ * "1.2.3" -> 1020300 (major * 1,000,000 + minor * 10,000 + patch * 100 + fourth number).
+ * The code grows with the version number, so a newer release always installs over an older one,
+ * whatever the CI run number is.
+ */
+fun versionCodeFor(version: String): Int {
+    val parts = version.substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }
+    fun part(index: Int, max: Int): Int = parts.getOrElse(index) { 0 }.coerceIn(0, max)
+    val code = part(0, 2000) * 1_000_000 + part(1, 99) * 10_000 + part(2, 99) * 100 + part(3, 99)
+    return code.coerceAtLeast(1)
+}
+
 android {
     namespace = "com.resonix.tv"
     compileSdk = 37
@@ -15,9 +27,10 @@ android {
         applicationId = "com.resonix.tv"
         minSdk = 26 // Android 8.0 - AAudio is available for Oboe
         targetSdk = 36
-        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1 // newer CI build = higher code
-        // The version is typed in when the workflow is started (-PappVersion=...).
-        versionName = providers.gradleProperty("appVersion").orElse("0.0.0-dev").get()
+        // The version is typed in when the release workflow is started (-PappVersion=...).
+        val appVersion = providers.gradleProperty("appVersion").orElse("0.0.0-dev").get()
+        versionName = appVersion
+        versionCode = versionCodeFor(appVersion)
         // "owner/repo" of the GitHub repository that built this APK: the in-app updater looks there.
         buildConfigField("String", "UPDATE_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: ""}\"")
 
