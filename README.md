@@ -16,10 +16,10 @@
 <br/>
 
 <p align="center">
-  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases"><img alt="Release" src="https://img.shields.io/github/v/release/YOUR_USERNAME/Resonix-TV?style=for-the-badge&label=RELEASE&labelColor=121418&color=00e5ff&logo=github&logoColor=00e5ff" /></a>
-  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/YOUR_USERNAME/Resonix-TV?style=for-the-badge&label=STARS&labelColor=121418&color=ffb74d&logo=github&logoColor=ffb74d" /></a>
-  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/YOUR_USERNAME/Resonix-TV/total?style=for-the-badge&label=DOWNLOADS&labelColor=121418&color=3b82f6&logo=github&logoColor=3b82f6" /></a>
-  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/YOUR_USERNAME/Resonix-TV?style=for-the-badge&label=LICENSE&labelColor=121418&color=cfd3da" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases"><img alt="Release" src="https://img.shields.io/github/v/release/aravindrejidev/Resonix-TV?style=for-the-badge&label=RELEASE&labelColor=121418&color=00e5ff&logo=github&logoColor=00e5ff" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/aravindrejidev/Resonix-TV?style=for-the-badge&label=STARS&labelColor=121418&color=ffb74d&logo=github&logoColor=ffb74d" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/aravindrejidev/Resonix-TV/total?style=for-the-badge&label=DOWNLOADS&labelColor=121418&color=3b82f6&logo=github&logoColor=3b82f6" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/aravindrejidev/Resonix-TV?style=for-the-badge&label=LICENSE&labelColor=121418&color=cfd3da" /></a>
 </p>
 
 <p align="center">
