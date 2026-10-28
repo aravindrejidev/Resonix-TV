@@ -347,6 +347,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
                 channelCount = streamFormat.channelCount,
                 formatInfo = formatInfo,
                 meters = meters,
+                sampleRate = streamFormat.sampleRate,
             )
         }
     }

@@ -36,3 +36,18 @@ fun channelLayoutName(count: Int): String = when (count) {
     8 -> "7.1"
     else -> if (count > 0) "${count} ch" else "?"
 }
+
+/** Frequency for the parameter list: "250 Hz", "1.06 kHz", "16.0 kHz". */
+fun formatFreqLong(hz: Float): String = when {
+    hz >= 10000f -> String.format(Locale.US, "%.1f kHz", hz / 1000f)
+    hz >= 1000f -> String.format(Locale.US, "%.2f kHz", hz / 1000f)
+    hz >= 100f -> String.format(Locale.US, "%.0f Hz", hz)
+    else -> String.format(Locale.US, "%.1f Hz", hz)
+}
+
+/** Q factor: "0.71", "1.4", "12". */
+fun formatQ(q: Float): String = when {
+    q >= 10f -> String.format(Locale.US, "%.0f", q)
+    q >= 1f -> String.format(Locale.US, "%.1f", q)
+    else -> String.format(Locale.US, "%.2f", q)
+}

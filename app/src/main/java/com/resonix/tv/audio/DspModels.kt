@@ -1,11 +1,20 @@
 package com.resonix.tv.audio
 
-enum class EqBandType(val id: Int) {
-    PEAK(0),
-    LOW_SHELF(1),
-    HIGH_SHELF(2),
-    HIGH_PASS(3),
-    LOW_PASS(4),
+enum class EqBandType(val id: Int, val label: String) {
+    PEAK(0, "Peak"),
+    LOW_SHELF(1, "Low shelf"),
+    HIGH_SHELF(2, "High shelf"),
+    HIGH_PASS(3, "High-pass"),
+    LOW_PASS(4, "Low-pass");
+
+    /** Peak and shelf filters boost / cut; high-pass and low-pass filters have no gain. */
+    val usesGain: Boolean get() = this == PEAK || this == LOW_SHELF || this == HIGH_SHELF
+}
+
+/** Which equalizer is in use. Only one of them runs at a time. */
+enum class EqMode(val id: Int, val label: String) {
+    GRAPHIC(0, "Graphic"),
+    PARAMETRIC(1, "Parametric"),
 }
 
 /** One parametric EQ band: frequency, gain and Q-factor. */
@@ -69,6 +78,12 @@ object EqDefaults {
     val ISO_FREQUENCIES = floatArrayOf(31.5f, 63f, 125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f)
 
     fun flat(): List<EqBand> = ISO_FREQUENCIES.map { EqBand(freqHz = it) }
+
+    /** Start layout of the parametric EQ: ten peak filters, one per octave, all flat (0 dB). */
+    const val PARAMETRIC_Q = 1.4f
+
+    fun flatParametric(): List<EqBand> =
+        ISO_FREQUENCIES.map { EqBand(freqHz = it, q = PARAMETRIC_Q) }
 }
 
 /** A named combination of per-channel gains and EQ bands. */

@@ -38,10 +38,9 @@ import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.ui.components.NeoIcon
 import com.resonix.tv.ui.components.NeoIconView
-import com.resonix.tv.ui.components.NeoInfoCard
-import com.resonix.tv.ui.components.NeoSectionHeader
 import com.resonix.tv.ui.components.NeoSidebarItem
 import com.resonix.tv.ui.components.NeoText
+import com.resonix.tv.ui.eq.EqSection
 import com.resonix.tv.ui.home.HomeSection
 import com.resonix.tv.ui.settings.SettingsSection
 import com.resonix.tv.ui.theme.NeoColors
@@ -63,6 +62,9 @@ enum class Section(val label: String, val icon: NeoIcon) {
 /** The page currently shown on the right registers its key handler here. */
 class SectionKeys {
     var handler: ((RemoteKey, Int) -> Boolean)? = null
+
+    /** BACK on a page with sub-pages: return true when the page went one level up itself. */
+    var onBack: (() -> Boolean)? = null
 }
 
 private enum class NetKind { WIFI, ETHERNET, OFFLINE }
@@ -108,24 +110,6 @@ private fun NeoStatusBar(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun EqSection(keys: SectionKeys) {
-    DisposableEffect(Unit) {
-        val handler: (RemoteKey, Int) -> Boolean = { _, _ -> false }
-        keys.handler = handler
-        onDispose { if (keys.handler === handler) keys.handler = null }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        NeoSectionHeader("Equalizer", "Channel mixer and 10-band parametric EQ", NeoIcon.EQ)
-        NeoInfoCard(
-            title = "Coming in the next update",
-            value = "Full-screen equalizer",
-            detail = "Until then: while a movie plays, press DOWN to open the channel mixer, the 10-band EQ and the presets.",
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
 /**
  * Left navigation bar + pages. Two zones: the bar and the page. RIGHT / OK enters the page,
  * LEFT (or BACK) on the left edge of a page returns to the bar.
@@ -145,7 +129,9 @@ fun MainShell(
     val currentSection by rememberUpdatedState(section)
     val currentOnChange by rememberUpdatedState(onSectionChange)
 
-    BackHandler(enabled = !inSidebar) { inSidebar = true }
+    BackHandler(enabled = !inSidebar) {
+        if (keys.onBack?.invoke() != true) inSidebar = true
+    }
 
     DisposableEffect(Unit) {
         val handler: (RemoteKey, Int) -> Boolean = { key, repeat ->
@@ -220,7 +206,7 @@ fun MainShell(
                         onPlay = onPlay,
                         onOpenHistory = onOpenHistory,
                     )
-                    Section.EQ -> EqSection(keys)
+                    Section.EQ -> EqSection(active = !inSidebar, keys = keys)
                     Section.SETTINGS -> SettingsSection(
                         active = !inSidebar,
                         keys = keys,

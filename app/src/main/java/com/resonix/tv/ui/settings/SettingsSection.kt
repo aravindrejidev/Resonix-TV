@@ -45,6 +45,7 @@ private class SettingEntry(
     val toggle: Boolean? = null,
     val chevron: Boolean = false,
     val onSelect: () -> Unit,
+    val onAdjust: ((Int) -> Unit)? = null,
 )
 
 private sealed interface SettingLine {
@@ -65,6 +66,13 @@ fun SettingsSection(active: Boolean, keys: SectionKeys, onOpenDiagnostics: () ->
     var cursor by remember { mutableIntStateOf(1) }
 
     val lines: List<SettingLine> = listOf(
+        SettingLine.Header("DISPLAY"),
+        SettingLine.Entry(
+            SettingEntry("Interface size", "LEFT / RIGHT makes everything smaller or larger", NeoIcon.VIDEO,
+                valueText = "${settings.uiScalePercent} %",
+                onSelect = { settings.cycleUiScale() },
+                onAdjust = { settings.stepUiScale(it) }),
+        ),
         SettingLine.Header("PLAYBACK"),
         SettingLine.Entry(
             SettingEntry("Seek step", "How far LEFT and RIGHT jump while watching", NeoIcon.PLAY,
@@ -84,11 +92,11 @@ fun SettingsSection(active: Boolean, keys: SectionKeys, onOpenDiagnostics: () ->
         ),
         SettingLine.Header("AUDIO"),
         SettingLine.Entry(
-            SettingEntry("Channel mixer and EQ", "Off = sound goes through untouched", NeoIcon.EQ,
+            SettingEntry("Channel mixer and EQ", "Off = sound goes through untouched (graphic and parametric EQ)", NeoIcon.EQ,
                 toggle = dsp.processingEnabled, onSelect = { dsp.setProcessing(!dsp.processingEnabled) }),
         ),
         SettingLine.Entry(
-            SettingEntry("Reset audio settings", "Flat EQ, every channel at 0 dB, nothing muted", NeoIcon.EQ,
+            SettingEntry("Reset audio settings", "Flat graphic EQ, every channel at 0 dB, nothing muted. Your saved parametric EQ is kept", NeoIcon.EQ,
                 chevron = true, onSelect = {
                     dsp.resetAll()
                     message = "Audio settings were reset."
@@ -133,6 +141,16 @@ fun SettingsSection(active: Boolean, keys: SectionKeys, onOpenDiagnostics: () ->
                 RemoteKey.DOWN -> {
                     move(1)
                     true
+                }
+                RemoteKey.LEFT, RemoteKey.RIGHT -> {
+                    val line = latestLines.getOrNull(cursor)
+                    val adjust = (line as? SettingLine.Entry)?.entry?.onAdjust
+                    if (adjust != null) {
+                        adjust(if (key == RemoteKey.RIGHT) 1 else -1)
+                        true
+                    } else {
+                        false
+                    }
                 }
                 RemoteKey.SELECT -> {
                     val line = latestLines.getOrNull(cursor)

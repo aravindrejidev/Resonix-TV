@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -14,7 +15,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import com.resonix.tv.data.MediaLibrary
+import com.resonix.tv.data.SettingsStore
 import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.ui.browser.BrowserScreen
 import com.resonix.tv.ui.diagnostics.DiagnosticsScreen
@@ -45,6 +49,12 @@ fun ResonixApp(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val updates = remember { UpdateController(context.applicationContext, scope) }
+    val settings = remember { SettingsStore.get(context) }
+    val systemDensity = LocalDensity.current
+    // One switch for the whole interface size: dp and sp both follow this density.
+    val appDensity = remember(systemDensity.density, systemDensity.fontScale, settings.uiScalePercent) {
+        Density(systemDensity.density * settings.uiScalePercent / 100f, systemDensity.fontScale)
+    }
     var section by remember { mutableStateOf(Section.HOME) }
     val stack = remember { mutableStateListOf<Overlay>() }
 
@@ -68,37 +78,39 @@ fun ResonixApp(
         }
     }
 
-    Box(Modifier.fillMaxSize().neoBackground()) {
-        when (val top = stack.lastOrNull()) {
-            null -> MainShell(
-                section = section,
-                onSectionChange = { section = it },
-                updates = updates,
-                onOpenBrowser = { dir -> push(Overlay.Browser(dir)) },
-                onOpenHistory = { push(Overlay.History) },
-                onPlay = { request -> push(Overlay.Player(request)) },
-                onOpenDiagnostics = { push(Overlay.Diagnostics) },
-            )
-            is Overlay.Browser -> key(top) {
-                BrowserScreen(
-                    startDir = top.startDir,
+    CompositionLocalProvider(LocalDensity provides appDensity) {
+        Box(Modifier.fillMaxSize().neoBackground()) {
+            when (val top = stack.lastOrNull()) {
+                null -> MainShell(
+                    section = section,
+                    onSectionChange = { section = it },
+                    updates = updates,
+                    onOpenBrowser = { dir -> push(Overlay.Browser(dir)) },
+                    onOpenHistory = { push(Overlay.History) },
+                    onPlay = { request -> push(Overlay.Player(request)) },
+                    onOpenDiagnostics = { push(Overlay.Diagnostics) },
+                )
+                is Overlay.Browser -> key(top) {
+                    BrowserScreen(
+                        startDir = top.startDir,
+                        onPlay = { request -> push(Overlay.Player(request)) },
+                        onExit = { pop() },
+                    )
+                }
+                Overlay.History -> HistoryScreen(
                     onPlay = { request -> push(Overlay.Player(request)) },
                     onExit = { pop() },
                 )
+                is Overlay.Player -> key(top.request.uri) {
+                    PlayerScreen(top.request, onExit = { pop() })
+                }
+                Overlay.Diagnostics -> DiagnosticsScreen(
+                    nativeInfo = nativeInfo,
+                    ffmpegInfo = ffmpegInfo,
+                    activityKey = activityKey,
+                    onBack = { pop() },
+                )
             }
-            Overlay.History -> HistoryScreen(
-                onPlay = { request -> push(Overlay.Player(request)) },
-                onExit = { pop() },
-            )
-            is Overlay.Player -> key(top.request.uri) {
-                PlayerScreen(top.request, onExit = { pop() })
-            }
-            Overlay.Diagnostics -> DiagnosticsScreen(
-                nativeInfo = nativeInfo,
-                ffmpegInfo = ffmpegInfo,
-                activityKey = activityKey,
-                onBack = { pop() },
-            )
         }
     }
 }

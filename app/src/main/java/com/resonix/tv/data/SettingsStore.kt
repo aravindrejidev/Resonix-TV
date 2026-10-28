@@ -12,12 +12,38 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
 
     var seekStepSec by mutableIntStateOf(prefs.getInt("seek_step", 10))
         private set
+    /** Size of the whole interface in percent (70 = everything 30 % smaller than the design size). */
+    var uiScalePercent by mutableIntStateOf(loadUiScale())
+        private set
     var osdSeconds by mutableIntStateOf(prefs.getInt("osd_seconds", 4))
         private set
     var resumePlayback by mutableStateOf(prefs.getBoolean("resume", true))
         private set
     var autoSubtitles by mutableStateOf(prefs.getBoolean("auto_subtitles", true))
         private set
+
+    /**
+     * The first time this version starts, the interface becomes smaller: the old default (80 %) was
+     * too big. A smaller size chosen earlier is kept; nothing ever becomes bigger than before.
+     */
+    private fun loadUiScale(): Int {
+        if (prefs.contains(KEY_UI_SCALE)) return prefs.getInt(KEY_UI_SCALE, DEFAULT_UI_SCALE)
+        val old = prefs.getInt("ui_scale", -1)
+        val migrated = if (old > 0) minOf(old, DEFAULT_UI_SCALE) else DEFAULT_UI_SCALE
+        prefs.edit().putInt(KEY_UI_SCALE, migrated).apply()
+        return migrated
+    }
+
+    fun stepUiScale(delta: Int) {
+        val current = UI_SCALES.indexOf(uiScalePercent).let { if (it < 0) UI_SCALES.indexOf(DEFAULT_UI_SCALE) else it }
+        uiScalePercent = UI_SCALES[(current + delta).coerceIn(0, UI_SCALES.lastIndex)]
+        prefs.edit().putInt(KEY_UI_SCALE, uiScalePercent).apply()
+    }
+
+    fun cycleUiScale() {
+        uiScalePercent = next(UI_SCALES, uiScalePercent)
+        prefs.edit().putInt(KEY_UI_SCALE, uiScalePercent).apply()
+    }
 
     fun cycleSeekStep() {
         seekStepSec = next(SEEK_STEPS, seekStepSec)
@@ -45,6 +71,11 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     }
 
     companion object {
+        private const val KEY_UI_SCALE = "ui_scale_v2"
+        const val DEFAULT_UI_SCALE = 70
+
+        /** 50 % ... 120 % in 5 % steps. */
+        val UI_SCALES: List<Int> = (50..120 step 5).toList()
         val SEEK_STEPS = listOf(5, 10, 15, 30)
         val OSD_SECONDS = listOf(3, 4, 6, 8, 12)
 

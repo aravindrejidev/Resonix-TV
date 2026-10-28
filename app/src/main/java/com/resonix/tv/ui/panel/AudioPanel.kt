@@ -31,9 +31,12 @@ import androidx.media3.common.Tracks
 import com.resonix.tv.audio.ChannelLayouts
 import com.resonix.tv.audio.DspController
 import com.resonix.tv.audio.DspPresets
+import com.resonix.tv.audio.EqMode
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.ui.channelLayoutName
+import com.resonix.tv.ui.components.NeoEqCurve
 import com.resonix.tv.ui.components.NeoFader
+import com.resonix.tv.ui.components.NeoModeCard
 import com.resonix.tv.ui.components.NeoRow
 import com.resonix.tv.ui.components.NeoTab
 import com.resonix.tv.ui.components.NeoText
@@ -183,6 +186,8 @@ fun buildTrackItems(tracks: Tracks): List<TrackItem> {
  *   tab bar:  LEFT/RIGHT change tab, DOWN/OK go into the content, UP/MENU close.
  *   lists:    UP/DOWN move, OK selects.
  *   faders:   LEFT/RIGHT choose a channel/band, UP/DOWN change the level, OK = mute / reset.
+ *   EQ tab:   first the EQ on/off card, then the Graphic/Parametric card (UP = graphic, DOWN = parametric),
+ *             then (graphic only) the ten bands. The parametric EQ is edited in the main menu (EQ).
  *   BACK is handled by the player screen (content -> tab bar -> closed).
  */
 class AudioPanelController(
@@ -212,7 +217,8 @@ class AudioPanelController(
         }
         when (state.tab) {
             PanelTab.TRACKS, PanelTab.PRESETS -> listKey(key)
-            PanelTab.CHANNELS, PanelTab.EQUALIZER -> faderKey(key, repeat)
+            PanelTab.CHANNELS -> faderKey(key, repeat)
+            PanelTab.EQUALIZER -> eqKey(key, repeat)
         }
         return true
     }
@@ -266,26 +272,50 @@ class AudioPanelController(
         }
     }
 
+    /** Channel mixer: column 0 = master, then one fader per channel. */
     private fun faderKey(key: RemoteKey, repeat: Int) {
-        val equalizer = state.tab == PanelTab.EQUALIZER
-        val columns = (if (equalizer) dsp.bands.size else displayedChannels()) + 1
+        val columns = displayedChannels() + 1
         when (key) {
             RemoteKey.LEFT -> state.cursor = (state.cursor - 1).coerceAtLeast(0)
             RemoteKey.RIGHT -> state.cursor = (state.cursor + 1).coerceAtMost(columns - 1)
             RemoteKey.UP, RemoteKey.DOWN -> {
                 val step = if (repeat > 6) 1.0f else 0.5f
                 val delta = if (key == RemoteKey.UP) step else -step
-                if (equalizer) {
-                    if (state.cursor == 0) dsp.enableEq(key == RemoteKey.UP) else dsp.adjustBand(state.cursor - 1, delta)
-                } else {
-                    if (state.cursor == 0) dsp.adjustMaster(delta) else dsp.adjustChannel(state.cursor - 1, delta)
+                if (state.cursor == 0) dsp.adjustMaster(delta) else dsp.adjustChannel(state.cursor - 1, delta)
+            }
+            RemoteKey.SELECT -> {
+                if (state.cursor == 0) dsp.setMaster(0f) else dsp.toggleMute(state.cursor - 1)
+            }
+            else -> Unit
+        }
+    }
+
+    /**
+     * Equalizer tab. Column 0 = EQ on/off, column 1 = which EQ (graphic / parametric),
+     * columns 2.. = the graphic EQ bands (not shown while the parametric EQ is selected).
+     */
+    private fun eqKey(key: RemoteKey, repeat: Int) {
+        val graphic = dsp.eqMode == EqMode.GRAPHIC
+        val columns = if (graphic) dsp.bands.size + 2 else 2
+        when (key) {
+            RemoteKey.LEFT -> state.cursor = (state.cursor - 1).coerceAtLeast(0)
+            RemoteKey.RIGHT -> state.cursor = (state.cursor + 1).coerceAtMost(columns - 1)
+            RemoteKey.UP, RemoteKey.DOWN -> {
+                val up = key == RemoteKey.UP
+                when (state.cursor) {
+                    0 -> dsp.enableEq(up)
+                    1 -> dsp.setEqMode(if (up) EqMode.GRAPHIC else EqMode.PARAMETRIC)
+                    else -> {
+                        val step = if (repeat > 6) 1.0f else 0.5f
+                        dsp.adjustBand(state.cursor - 2, if (up) step else -step)
+                    }
                 }
             }
             RemoteKey.SELECT -> {
-                if (equalizer) {
-                    if (state.cursor == 0) dsp.toggleEq() else dsp.resetBand(state.cursor - 1)
-                } else {
-                    if (state.cursor == 0) dsp.setMaster(0f) else dsp.toggleMute(state.cursor - 1)
+                when (state.cursor) {
+                    0 -> dsp.toggleEq()
+                    1 -> dsp.toggleEqMode()
+                    else -> dsp.resetBand(state.cursor - 2)
                 }
             }
             else -> Unit
@@ -305,6 +335,7 @@ fun AudioPanel(
     channelCount: Int,
     formatInfo: String,
     meters: List<Float>,
+    sampleRate: Int,
     modifier: Modifier = Modifier,
 ) {
     val state = controller.state
@@ -335,7 +366,7 @@ fun AudioPanel(
             when (state.tab) {
                 PanelTab.TRACKS -> TracksContent(state, tracks)
                 PanelTab.CHANNELS -> ChannelsContent(state, dsp, controller.displayedChannels(), channelCount, meters)
-                PanelTab.EQUALIZER -> EqualizerContent(state, dsp)
+                PanelTab.EQUALIZER -> EqualizerContent(state, dsp, sampleRate)
                 PanelTab.PRESETS -> PresetsContent(state, dsp)
             }
         }
@@ -416,10 +447,11 @@ private fun ChannelsContent(
 }
 
 @Composable
-private fun EqualizerContent(state: PanelState, dsp: DspController) {
+private fun EqualizerContent(state: PanelState, dsp: DspController, sampleRate: Int) {
+    val graphic = dsp.eqMode == EqMode.GRAPHIC
     Row(
         modifier = Modifier.fillMaxSize(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, if (graphic) Alignment.CenterHorizontally else Alignment.Start),
     ) {
         NeoToggleCard(
             label = "EQ",
@@ -427,17 +459,46 @@ private fun EqualizerContent(state: PanelState, dsp: DspController) {
             focused = state.inContent && state.cursor == 0,
             modifier = Modifier.height(FADER_HEIGHT_DP.dp),
         )
-        for (i in 0 until dsp.bands.size) {
-            val band = dsp.bands[i]
-            NeoFader(
-                label = formatFreq(band.freqHz),
-                valueText = formatDb(band.gainDb),
-                value = (band.gainDb - DspController.GAIN_MIN) / (DspController.GAIN_MAX - DspController.GAIN_MIN),
-                focused = state.inContent && state.cursor == i + 1,
-                muted = !dsp.eqEnabled,
-                zeroMark = 0.5f,
-                modifier = Modifier.height(FADER_HEIGHT_DP.dp),
-            )
+        NeoModeCard(
+            label = "TYPE",
+            topText = "GRAPHIC",
+            bottomText = "PARAM",
+            topSelected = graphic,
+            focused = state.inContent && state.cursor == 1,
+            modifier = Modifier.height(FADER_HEIGHT_DP.dp),
+        )
+        if (graphic) {
+            for (i in 0 until dsp.bands.size) {
+                val band = dsp.bands[i]
+                NeoFader(
+                    label = formatFreq(band.freqHz),
+                    valueText = formatDb(band.gainDb),
+                    value = (band.gainDb - DspController.GAIN_MIN) / (DspController.GAIN_MAX - DspController.GAIN_MIN),
+                    focused = state.inContent && state.cursor == i + 2,
+                    muted = !dsp.eqEnabled,
+                    zeroMark = 0.5f,
+                    modifier = Modifier.height(FADER_HEIGHT_DP.dp),
+                )
+            }
+        } else {
+            // The saved parametric EQ: shown here, changed in the main menu (EQ).
+            Column(
+                modifier = Modifier.weight(1f).height(FADER_HEIGHT_DP.dp).padding(start = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                NeoText(
+                    text = "Parametric EQ (saved)  -  change it in the main menu: EQ",
+                    size = 13.sp,
+                    color = NeoColors.TextSecondary,
+                )
+                NeoEqCurve(
+                    bands = dsp.paramBands.toList(),
+                    sampleRate = sampleRate,
+                    dimmed = !dsp.eqEnabled,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    showMarkers = true,
+                )
+            }
         }
     }
 }
