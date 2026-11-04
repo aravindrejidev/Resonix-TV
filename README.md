@@ -31,7 +31,7 @@
 </p>
 <br/>
 
-[**Showcase**](#showcase) · [**Features**](#features) · [**Audio Chain**](#audio-chain) · [**Download**](#download) · [**Remote Control**](#remote) · [**Architecture**](#architecture) · [**Contributing**](#contributing) · [**Support**](#support) · [**Disclaimer**](#disclaimer)
+[**Features**](#features) · [**Audio Chain**](#audio-chain) · [**Download**](#download) · [**Remote Control**](#remote) · [**Architecture**](#architecture) · [**Contributing**](#contributing) · [**Support**](#support) · [**Disclaimer**](#disclaimer)
 
 <br/>
 
