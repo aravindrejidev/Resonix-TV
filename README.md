@@ -172,6 +172,25 @@ decoded audio ─► channel gain / mute ─► EQ (graphic OR parametric) ─�
 
 Both are saved separately. Switching between them never erases the other one.
 
+### Example: a parametric EQ for clearer dialogue
+
+Four of the ten bands are enough here. Together they give the curve below, calculated with the same filter maths the app uses:
+
+| Band | Type | Frequency | Gain | Q | Effect |
+|---|---|---|---|---|---|
+| 1 | Low shelf | 80 Hz | +4 dB | 0.7 | More punch in the bass |
+| 2 | Peak | 250 Hz | −3 dB | 1.0 | Less boominess |
+| 3 | Peak | 2.5 kHz | +3 dB | 1.2 | Clearer voices |
+| 4 | High shelf | 8 kHz | +2 dB | 0.7 | A little more air |
+
+```mermaid
+xychart-beta
+    title "Combined response of the four bands"
+    x-axis "Frequency (Hz)" ["20", "28", "40", "56", "80", "112", "159", "224", "317", "448", "632", "893", "1.3k", "1.8k", "2.5k", "3.6k", "5k", "7.1k", "10k", "14.2k", "20k"]
+    y-axis "Level (dB)" -4 --> 6
+    line [4.0, 3.9, 3.7, 3.0, 1.7, 0.1, -1.3, -2.8, -2.4, -1.1, -0.4, 0.1, 0.6, 1.7, 3.0, 1.7, 0.9, 1.0, 1.6, 2.0, 2.0]
+```
+
 ---
 
 <a id="download"></a>
@@ -340,6 +359,17 @@ ResonixTV is free and open source, with no ads or subscriptions. If it made your
   <a href="https://github.com/aravindrejidev/Resonix-TV"><img alt="Repo size" src="https://img.shields.io/github/repo-size/aravindrejidev/Resonix-TV?style=for-the-badge&label=REPO%20SIZE&labelColor=121418&color=39ff88" /></a>
   <a href="https://github.com/aravindrejidev/Resonix-TV/issues"><img alt="Open issues" src="https://img.shields.io/github/issues/aravindrejidev/Resonix-TV?style=for-the-badge&label=OPEN%20ISSUES&labelColor=121418&color=ffb74d" /></a>
 </p>
+
+<div align="center">
+
+```mermaid
+pie showData title What ResonixTV is made of (non-blank lines of code)
+    "Kotlin / Java (app and interface)" : 5787
+    "C++ (sound engine)" : 980
+    "Build scripts and CI" : 535
+```
+
+</div>
 
 ### 🗺️ Roadmap
 
