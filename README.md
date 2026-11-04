@@ -331,13 +331,31 @@ ResonixTV is free and open source, with no ads or subscriptions. If it made your
 
 <!-- Add your donation links here, for example Ko-fi or PayPal -->
 
-### 📈 Star History
+### 📊 Project Status
 
 <p align="center">
-  <a href="https://star-history.com/#aravindrejidev/Resonix-TV&Date">
-    <img src="https://api.star-history.com/svg?repos=aravindrejidev/Resonix-TV&type=Date&theme=dark" alt="Star History Chart" width="100%" />
-  </a>
+  <a href="https://github.com/aravindrejidev/Resonix-TV/commits"><img alt="Last commit" src="https://img.shields.io/github/last-commit/aravindrejidev/Resonix-TV?style=for-the-badge&label=LAST%20COMMIT&labelColor=121418&color=00e5ff" /></a>
+  <a href="https://github.com/aravindrejidev/Resonix-TV/graphs/commit-activity"><img alt="Commit activity" src="https://img.shields.io/github/commit-activity/m/aravindrejidev/Resonix-TV?style=for-the-badge&label=COMMITS%20%2F%20MONTH&labelColor=121418&color=3b82f6" /></a>
+  <a href="https://github.com/aravindrejidev/Resonix-TV"><img alt="Top language" src="https://img.shields.io/github/languages/top/aravindrejidev/Resonix-TV?style=for-the-badge&label=TOP%20LANGUAGE&labelColor=121418&color=7f52ff" /></a>
+  <a href="https://github.com/aravindrejidev/Resonix-TV"><img alt="Repo size" src="https://img.shields.io/github/repo-size/aravindrejidev/Resonix-TV?style=for-the-badge&label=REPO%20SIZE&labelColor=121418&color=39ff88" /></a>
+  <a href="https://github.com/aravindrejidev/Resonix-TV/issues"><img alt="Open issues" src="https://img.shields.io/github/issues/aravindrejidev/Resonix-TV?style=for-the-badge&label=OPEN%20ISSUES&labelColor=121418&color=ffb74d" /></a>
 </p>
+
+### 🗺️ Roadmap
+
+**Done**
+- [x] Channel mixer, graphic EQ and parametric EQ
+- [x] FFmpeg decoders for DTS, TrueHD and E-AC3
+- [x] One APK per CPU type, with an in-app updater that picks the right one
+- [x] Adjustable subtitle size
+
+**Ideas**
+- [ ] Audio delay, to fix lip-sync on soundbars and receivers
+- [ ] Picture modes: Fit, Zoom and Stretch
+- [ ] Play the next episode from the same folder automatically
+- [ ] Several named parametric EQ presets
+
+Have an idea? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issues) and tell us.
 
 ---
 
@@ -374,8 +392,7 @@ Contributions are welcome, whether it's a bug fix, a new feature, or better word
 ## ⚖️ License & Disclaimer
 
 ### License
-<!-- Choose a license, add a LICENSE file to the repository root, and describe it here. -->
-See the [LICENSE](LICENSE) file for details. ResonixTV uses FFmpeg, built as an LGPL-only version (no GPL parts), which is distributed under the LGPL.
+ResonixTV is free software, released under the [GNU General Public License v3.0](LICENSE). It uses FFmpeg, built as an LGPL-only version (no GPL parts), which is distributed under the LGPL.
 
 ### Disclaimer
 - **Sound shaping, not magic.** The EQ and the mixer change how a recording sounds. They cannot bring back detail that was never there, and a very loud boost can still sound distorted even though the soft limiter prevents clipping.
