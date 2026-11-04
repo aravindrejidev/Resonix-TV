@@ -10,24 +10,26 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.resonix.tv.audio.AudioPipeline
 import com.resonix.tv.audio.NativeBridge
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.FfmpegInfo
+import com.resonix.tv.player.PlayerLifecycle
 import com.resonix.tv.ui.ResonixApp
 
 class MainActivity : ComponentActivity() {
 
     private var activityKey by mutableStateOf("Press any remote key")
     private var incomingUri by mutableStateOf<Uri?>(null)
+    private var nativeInfo by mutableStateOf("Native engine: checking...")
+    private var ffmpegInfo by mutableStateOf("FFmpeg decoders: checking...")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
 
-        val nativeInfo = runCatching { NativeBridge.nativeVersion() }
-            .getOrElse { "Native engine unavailable (${it.javaClass.simpleName})" }
-        val ffmpegInfo = FfmpegInfo.describe()
+        warmUp()
 
         setContent {
             ResonixApp(
@@ -38,6 +40,27 @@ class MainActivity : ComponentActivity() {
                 activityKey = activityKey,
             )
         }
+    }
+
+    /**
+     * Loads the native libraries (sound engine, FFmpeg decoders) and restores the saved EQ settings
+     * in the background while the first screen is drawn. The first movie then starts without
+     * waiting for them, and the app opens faster because none of this blocks the main thread.
+     */
+    private fun warmUp() {
+        val appContext = applicationContext
+        Thread({
+            nativeInfo = runCatching { NativeBridge.nativeVersion() }
+                .getOrElse { "Native engine unavailable (${it.javaClass.simpleName})" }
+            ffmpegInfo = FfmpegInfo.describe()
+            runCatching { AudioPipeline.controller(appContext) }
+        }, "resonix-warmup").start()
+    }
+
+    /** Home button, TV going to sleep, screen saver: pause the movie and remember where it stopped. */
+    override fun onStop() {
+        super.onStop()
+        PlayerLifecycle.onAppStopped?.invoke()
     }
 
     override fun onNewIntent(intent: Intent) {

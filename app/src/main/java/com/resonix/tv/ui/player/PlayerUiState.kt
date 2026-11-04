@@ -58,6 +58,11 @@ class PlayerUiState(private val player: Player) {
         player.removeListener(listener)
     }
 
+    /** Hides the error message (used before trying to play again). */
+    fun clearError() {
+        error = null
+    }
+
     fun poll() {
         positionMs = player.currentPosition
         val duration = player.duration

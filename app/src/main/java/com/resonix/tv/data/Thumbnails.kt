@@ -14,12 +14,18 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /** Video preview pictures: taken from the movie once, then kept on disk and in memory. */
 object Thumbnails {
     private const val WIDTH = 480
     private val memory = LruCache<String, Bitmap>(24)
+
+    // Home can ask for many pictures at once. Decoding video frames is heavy, so only two run
+    // together; the rest wait their turn and the interface stays smooth.
+    private val gate = Semaphore(2)
 
     suspend fun load(context: Context, uriString: String): Bitmap? = withContext(Dispatchers.IO) {
         memory.get(uriString)?.let { return@withContext it }
@@ -31,7 +37,7 @@ object Thumbnails {
                 return@withContext it
             }
         }
-        val bitmap = extract(context, Uri.parse(uriString)) ?: return@withContext null
+        val bitmap = gate.withPermit { extract(context, Uri.parse(uriString)) } ?: return@withContext null
         runCatching { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 82, it) } }
         memory.put(uriString, bitmap)
         bitmap

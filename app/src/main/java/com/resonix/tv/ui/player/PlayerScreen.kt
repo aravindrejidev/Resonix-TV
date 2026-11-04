@@ -37,12 +37,14 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import com.resonix.tv.audio.AudioPipeline
 import com.resonix.tv.data.HistoryStore
 import com.resonix.tv.data.SettingsStore
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.PlayRequest
+import com.resonix.tv.player.PlayerLifecycle
 import com.resonix.tv.player.PlayerFactory
 import com.resonix.tv.ui.channelLayoutName
 import com.resonix.tv.ui.components.NeoText
@@ -118,6 +120,23 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
         osdTick++
     }
 
+    /** Remembers how far you got (Home > Recently Watched). Reads the player directly. */
+    fun saveProgress() {
+        val duration = exo.duration
+        val position = exo.currentPosition
+        if (duration != C.TIME_UNSET && duration > 0 && position > 3_000) {
+            history.record(uriKey, title, position, duration)
+        }
+    }
+
+    /** Plays again after an error (a decoder hiccup, a USB drive that woke up late ...). */
+    fun retryAfterError() {
+        ui.clearError()
+        exo.prepare()
+        exo.play()
+        poke()
+    }
+
     val panelController = remember(exo) {
         AudioPanelController(
             state = panel,
@@ -130,22 +149,35 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
 
     DisposableEffect(exo) {
         ui.attach()
+        // HOME button, TV sleep, screen saver: pause the movie (it must not keep playing in the
+        // background) and remember where it stopped.
+        val stopHandler: () -> Unit = {
+            exo.pause()
+            saveProgress()
+        }
+        PlayerLifecycle.onAppStopped = stopHandler
         onDispose {
-            if (ui.durationMs > 0 && ui.positionMs > 3_000) {
-                history.record(uriKey, title, ui.positionMs, ui.durationMs)
-            }
+            if (PlayerLifecycle.onAppStopped === stopHandler) PlayerLifecycle.onAppStopped = null
+            saveProgress()
             ui.detach()
             exo.release()
         }
     }
 
-    // Remember how far you got (Home > Recently Watched), every 5 seconds.
+    // Remember how far you got, every 5 seconds.
     LaunchedEffect(exo) {
         while (true) {
             delay(5000)
-            if (ui.durationMs > 0 && ui.positionMs > 3_000) {
-                history.record(uriKey, title, ui.positionMs, ui.durationMs)
-            }
+            saveProgress()
+        }
+    }
+
+    // The movie is over: note it as watched and go back to the list instead of freezing on the last frame.
+    LaunchedEffect(ui.playbackState) {
+        if (ui.playbackState == Player.STATE_ENDED) {
+            saveProgress()
+            delay(1500)
+            currentOnExit()
         }
     }
 
@@ -210,6 +242,10 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
 
     DisposableEffect(exo) {
         val handler: (RemoteKey, Int) -> Boolean = handler@{ key, repeat ->
+            if (ui.error != null && (key == RemoteKey.SELECT || key == RemoteKey.PLAY_PAUSE || key == RemoteKey.PLAY)) {
+                retryAfterError()
+                return@handler true
+            }
             if (panelController.handleKey(key, repeat)) return@handler true
             when (key) {
                 RemoteKey.SELECT, RemoteKey.PLAY_PAUSE -> {
@@ -286,6 +322,8 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
         "waiting for audio"
     }
 
+    val subtitleSizePercent = settings.subtitleSizePercent
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -295,8 +333,14 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     isFocusable = false
                     isFocusableInTouchMode = false
+                    // Our size setting wins over font sizes written inside .ass / .srt files.
+                    subtitleView?.setApplyEmbeddedFontSizes(false)
                     player = exo
                 }
+            },
+            // Subtitle size from Settings (100 % = Media3's normal size).
+            update = { view ->
+                view.subtitleView?.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * subtitleSizePercent / 100f)
             },
         )
 
@@ -312,7 +356,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
             ) {
                 NeoText("Cannot play this file", size = 24.sp, color = NeoColors.Danger)
                 NeoText(errorText, size = 16.sp, color = NeoColors.TextSecondary, maxLines = 4)
-                NeoText("Press BACK to return", size = 14.sp, color = NeoColors.TextDim)
+                NeoText("Press OK to try again   |   BACK to return", size = 14.sp, color = NeoColors.TextDim)
             }
         } else if (ui.playbackState == Player.STATE_BUFFERING) {
             NeoText("Buffering...", size = 22.sp, color = NeoColors.TextSecondary, modifier = Modifier.align(Alignment.Center))

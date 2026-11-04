@@ -16,10 +16,10 @@
 <br/>
 
 <p align="center">
-  <a href="https://github.com/aravindrejidev/Resonix-TV/releases"><img alt="Release" src="https://img.shields.io/github/v/release/aravindrejidev/Resonix-TV?style=for-the-badge&label=RELEASE&labelColor=121418&color=00e5ff&logo=github&logoColor=00e5ff" /></a>
-  <a href="https://github.com/aravindrejidev/Resonix-TV/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/aravindrejidev/Resonix-TV?style=for-the-badge&label=STARS&labelColor=121418&color=ffb74d&logo=github&logoColor=ffb74d" /></a>
-  <a href="https://github.com/aravindrejidev/Resonix-TV/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/aravindrejidev/Resonix-TV/total?style=for-the-badge&label=DOWNLOADS&labelColor=121418&color=3b82f6&logo=github&logoColor=3b82f6" /></a>
-  <a href="https://github.com/aravindrejidev/Resonix-TV/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/aravindrejidev/Resonix-TV?style=for-the-badge&label=LICENSE&labelColor=121418&color=cfd3da" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases"><img alt="Release" src="https://img.shields.io/github/v/release/YOUR_USERNAME/Resonix-TV?style=for-the-badge&label=RELEASE&labelColor=121418&color=00e5ff&logo=github&logoColor=00e5ff" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/YOUR_USERNAME/Resonix-TV?style=for-the-badge&label=STARS&labelColor=121418&color=ffb74d&logo=github&logoColor=ffb74d" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/YOUR_USERNAME/Resonix-TV/total?style=for-the-badge&label=DOWNLOADS&labelColor=121418&color=3b82f6&logo=github&logoColor=3b82f6" /></a>
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/YOUR_USERNAME/Resonix-TV?style=for-the-badge&label=LICENSE&labelColor=121418&color=cfd3da" /></a>
 </p>
 
 <p align="center">
@@ -121,10 +121,10 @@ No accounts. No ads. No telemetry. Your files stay on your TV; the network is us
 #### Playback
 - **FFmpeg audio decoders** — AC3, E-AC3, DTS, DTS-HD, TrueHD, MLP, FLAC, ALAC, Opus, Vorbis, MP3 and AAC. Android's own decoders are the fallback.
 - **Audio & subtitle tracks** — switch language or subtitle on the fly, without leaving the movie.
-- **Subtitle files** — `.srt`, `.vtt`, `.ass` and `.ssa` files next to the movie are found and (optionally) switched on automatically.
-- **Resume** — continue where you stopped, with preview pictures in *Recently Watched*.
+- **Subtitle files** — `.srt`, `.vtt`, `.ass` and `.ssa` files next to the movie are found and (optionally) switched on automatically. The size is adjustable in Settings (75 % – 200 %).
+- **Resume** — continue where you stopped, with preview pictures in *Recently Watched*. The movie pauses by itself when you press HOME or the TV goes to sleep, and returns to the list when it ends.
 - **On-screen display** — title, progress, buffering, audio format; it hides itself after a time you choose.
-- **Seek step** — 5, 10, 15 or 30 seconds per press; hold the key to jump further.
+- **Fast seeking** — 5, 10, 15 or 30 seconds per press (hold the key to jump further), landing on the nearest keyframe so it stays instant even in big 4K files.
 
 #### Files & Library
 - **Storage cards** — internal storage, SD cards and USB drives with live usage bars.
@@ -179,10 +179,10 @@ Both are saved separately. Switching between them never erases the other one.
 
 <div align="center">
 
-<a href="https://github.com/aravindrejidev/Resonix-TV/releases/latest" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/android/cozy.svg" alt="Download for Android" height="55"/></a>
-<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/aravindrejidev/Resonix-TV" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Obtainium-Auto_Updates-purple?style=for-the-badge&logo=android" height="40" alt="Add to Obtainium"/></a>
+<a href="https://github.com/YOUR_USERNAME/Resonix-TV/releases/latest" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/android/cozy.svg" alt="Download for Android" height="55"/></a>
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/YOUR_USERNAME/Resonix-TV" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Obtainium-Auto_Updates-purple?style=for-the-badge&logo=android" height="40" alt="Add to Obtainium"/></a>
 
-Grab the latest signed APK from the [Releases](https://github.com/aravindrejidev/Resonix-TV/releases) page. Android TV 8.0 (API 26) or newer is required.
+Grab the latest signed APK from the [Releases](https://github.com/YOUR_USERNAME/Resonix-TV/releases) page. Android TV 8.0 (API 26) or newer is required.
 
 </div>
 
@@ -272,7 +272,7 @@ The repository has no Gradle wrapper; the CI uses a pinned Gradle version. You n
 - **NDK 28.2.13676358** and **CMake 3.22.1**
 
 ```bash
-git clone https://github.com/aravindrejidev/Resonix-TV.git
+git clone https://github.com/YOUR_USERNAME/Resonix-TV.git
 cd Resonix-TV
 
 # Optional but recommended: build the FFmpeg audio decoders (Linux, takes a while the first time)
@@ -327,15 +327,15 @@ ResonixTV is free and open source, with no ads or subscriptions. If it made your
 
 - ⭐ **Starring** the repository
 - 📣 **Sharing** it with fellow home-cinema fans
-- 🐛 **Reporting** bugs and TVs that misbehave on the [issues page](https://github.com/aravindrejidev/Resonix-TV/issues)
+- 🐛 **Reporting** bugs and TVs that misbehave on the [issues page](https://github.com/YOUR_USERNAME/Resonix-TV/issues)
 
 <!-- Add your donation links here, for example Ko-fi or PayPal -->
 
 ### 📈 Star History
 
 <p align="center">
-  <a href="https://star-history.com/#aravindrejidev/Resonix-TV&Date">
-    <img src="https://api.star-history.com/svg?repos=aravindrejidev/Resonix-TV&type=Date&theme=dark" alt="Star History Chart" width="100%" />
+  <a href="https://star-history.com/#YOUR_USERNAME/Resonix-TV&Date">
+    <img src="https://api.star-history.com/svg?repos=YOUR_USERNAME/Resonix-TV&type=Date&theme=dark" alt="Star History Chart" width="100%" />
   </a>
 </p>
 
@@ -346,15 +346,15 @@ ResonixTV is free and open source, with no ads or subscriptions. If it made your
 
 Contributions are welcome, whether it's a bug fix, a new feature, or better wording.
 
-- Something not working on your TV? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issues) with the TV or box model, the Android version, the file's audio format (for example *DTS 5.1*) and what you expected. The **Diagnostics** page in Settings shows most of this.
+- Something not working on your TV? Open an [issue](https://github.com/YOUR_USERNAME/Resonix-TV/issues) with the TV or box model, the Android version, the file's audio format (for example *DTS 5.1*) and what you expected. The **Diagnostics** page in Settings shows most of this.
 - For bigger changes, open an issue first so we can talk it through.
 - Pull requests should build cleanly and keep the **DSP self-test** passing.
 
 ### 👥 Contributors
 
 <div align="center">
-  <a href="https://github.com/aravindrejidev/Resonix-TV/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=aravindrejidev/Resonix-TV" alt="Contributors" />
+  <a href="https://github.com/YOUR_USERNAME/Resonix-TV/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=YOUR_USERNAME/Resonix-TV" alt="Contributors" />
   </a>
 </div>
 

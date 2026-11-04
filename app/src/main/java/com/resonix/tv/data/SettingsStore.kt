@@ -17,6 +17,9 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
         private set
     var osdSeconds by mutableIntStateOf(prefs.getInt("osd_seconds", 4))
         private set
+    /** Subtitle text size in percent of the normal size. */
+    var subtitleSizePercent by mutableIntStateOf(prefs.getInt("subtitle_size", 100))
+        private set
     var resumePlayback by mutableStateOf(prefs.getBoolean("resume", true))
         private set
     var autoSubtitles by mutableStateOf(prefs.getBoolean("auto_subtitles", true))
@@ -43,6 +46,17 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     fun cycleUiScale() {
         uiScalePercent = next(UI_SCALES, uiScalePercent)
         prefs.edit().putInt(KEY_UI_SCALE, uiScalePercent).apply()
+    }
+
+    fun stepSubtitleSize(delta: Int) {
+        val current = SUBTITLE_SIZES.indexOf(subtitleSizePercent).let { if (it < 0) SUBTITLE_SIZES.indexOf(100) else it }
+        subtitleSizePercent = SUBTITLE_SIZES[(current + delta).coerceIn(0, SUBTITLE_SIZES.lastIndex)]
+        prefs.edit().putInt("subtitle_size", subtitleSizePercent).apply()
+    }
+
+    fun cycleSubtitleSize() {
+        subtitleSizePercent = next(SUBTITLE_SIZES, subtitleSizePercent)
+        prefs.edit().putInt("subtitle_size", subtitleSizePercent).apply()
     }
 
     fun cycleSeekStep() {
@@ -73,6 +87,9 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     companion object {
         private const val KEY_UI_SCALE = "ui_scale_v2"
         const val DEFAULT_UI_SCALE = 70
+
+        /** Subtitle size choices in percent of the normal size. */
+        val SUBTITLE_SIZES: List<Int> = listOf(75, 100, 125, 150, 175, 200)
 
         /** 50 % ... 120 % in 5 % steps. */
         val UI_SCALES: List<Int> = (50..120 step 5).toList()

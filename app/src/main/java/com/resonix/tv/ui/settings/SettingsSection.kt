@@ -90,6 +90,12 @@ fun SettingsSection(active: Boolean, keys: SectionKeys, onOpenDiagnostics: () ->
             SettingEntry("Show subtitle files automatically", "Turns on a subtitle file found next to the movie", NeoIcon.FOLDER,
                 toggle = settings.autoSubtitles, onSelect = { settings.toggleAutoSubtitles() }),
         ),
+        SettingLine.Entry(
+            SettingEntry("Subtitle size", "LEFT / RIGHT makes subtitles smaller or larger", NeoIcon.VIDEO,
+                valueText = "${settings.subtitleSizePercent} %",
+                onSelect = { settings.cycleSubtitleSize() },
+                onAdjust = { settings.stepSubtitleSize(it) }),
+        ),
         SettingLine.Header("AUDIO"),
         SettingLine.Entry(
             SettingEntry("Channel mixer and EQ", "Off = sound goes through untouched (graphic and parametric EQ)", NeoIcon.EQ,

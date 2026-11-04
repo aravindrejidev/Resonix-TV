@@ -126,25 +126,17 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.animation)
 
-    // Compose for TV
-    implementation(libs.androidx.tv.material)
-
     // AndroidX
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Media3 / ExoPlayer (the FFmpeg audio decoders are added in module 3)
+    // Media3 / ExoPlayer. HLS and DASH are kept for http(s) links opened from other apps.
+    // The FFmpeg audio decoders are added in CI (scripts/setup_ffmpeg.sh).
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.dash)
-    implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.ui.compose)
-    implementation(libs.androidx.media3.common.ktx)
 
     // Native audio engine (C++): Oboe through Prefab
     implementation(libs.oboe)
