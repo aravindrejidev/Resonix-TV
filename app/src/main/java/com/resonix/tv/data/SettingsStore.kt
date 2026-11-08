@@ -12,7 +12,7 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
 
     var seekStepSec by mutableIntStateOf(prefs.getInt("seek_step", 10))
         private set
-    /** Size of the whole interface in percent (70 = everything 30 % smaller than the design size). */
+    /** Size of the whole interface in percent (75 = everything 25 % smaller than the design size). */
     var uiScalePercent by mutableIntStateOf(loadUiScale())
         private set
     var osdSeconds by mutableIntStateOf(prefs.getInt("osd_seconds", 4))
@@ -26,15 +26,16 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
         private set
 
     /**
-     * The first time this version starts, the interface becomes smaller: the old default (80 %) was
-     * too big. A smaller size chosen earlier is kept; nothing ever becomes bigger than before.
+     * Size history: 80 % was a bit too big, 70 % a bit too small, so the default is now 75 %.
+     * The first start of this version moves everybody to 75 %, unless a size other than the
+     * old defaults was picked on purpose in Settings (that choice is kept).
      */
     private fun loadUiScale(): Int {
         if (prefs.contains(KEY_UI_SCALE)) return prefs.getInt(KEY_UI_SCALE, DEFAULT_UI_SCALE)
-        val old = prefs.getInt("ui_scale", -1)
-        val migrated = if (old > 0) minOf(old, DEFAULT_UI_SCALE) else DEFAULT_UI_SCALE
-        prefs.edit().putInt(KEY_UI_SCALE, migrated).apply()
-        return migrated
+        val previous = prefs.getInt("ui_scale_v2", -1)
+        val chosen = if (previous > 0 && previous != 70) previous else DEFAULT_UI_SCALE
+        prefs.edit().putInt(KEY_UI_SCALE, chosen).apply()
+        return chosen
     }
 
     fun stepUiScale(delta: Int) {
@@ -85,8 +86,8 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     }
 
     companion object {
-        private const val KEY_UI_SCALE = "ui_scale_v2"
-        const val DEFAULT_UI_SCALE = 70
+        private const val KEY_UI_SCALE = "ui_scale_v3"
+        const val DEFAULT_UI_SCALE = 75
 
         /** Subtitle size choices in percent of the normal size. */
         val SUBTITLE_SIZES: List<Int> = listOf(75, 100, 125, 150, 175, 200)

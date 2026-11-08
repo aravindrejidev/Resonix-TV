@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.resonix.tv.ui.theme.NeoColors
@@ -107,8 +108,10 @@ fun NeoHistoryCard(
     thumbnail: ImageBitmap?,
     focused: Boolean,
     modifier: Modifier = Modifier,
+    cardWidth: Dp = 200.dp,
 ) {
-    Column(modifier.width(200.dp)) {
+    val playSize = (cardWidth.value * 0.23f).coerceIn(46f, 72f).dp
+    Column(modifier.width(cardWidth)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -139,7 +142,7 @@ fun NeoHistoryCard(
                     )
                 },
             )
-            Canvas(Modifier.size(46.dp)) {
+            Canvas(Modifier.size(playSize)) {
                 val r = size.minDimension / 2f
                 drawCircle(color = Color.Black.copy(alpha = 0.35f), radius = r)
                 drawCircle(color = Color.White.copy(alpha = 0.85f), radius = r - 1.dp.toPx(), style = Stroke(width = 2.dp.toPx()))
@@ -178,7 +181,7 @@ fun NeoHistoryCard(
         Spacer(Modifier.height(8.dp))
         NeoText(
             text = title,
-            size = 14.sp,
+            size = (cardWidth.value / 200f * 14f).coerceIn(14f, 18f).sp,
             color = if (focused) NeoColors.Cyan else NeoColors.TextSecondary,
         )
     }
@@ -186,12 +189,17 @@ fun NeoHistoryCard(
 
 /** Last tile of the "Recently Watched" row. */
 @Composable
-fun NeoViewAllTile(focused: Boolean, modifier: Modifier = Modifier) {
-    Column(modifier.width(140.dp)) {
+fun NeoViewAllTile(
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+    tileWidth: Dp = 140.dp,
+    tileHeight: Dp = 124.dp,
+) {
+    Column(modifier.width(tileWidth)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(140f / 124f)
+                .height(tileHeight)
                 .neuRaised(16.dp, 5.dp)
                 .neuFocusRing(focused, 16.dp),
             contentAlignment = Alignment.Center,
@@ -217,7 +225,7 @@ fun NeoSidebarItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .height(58.dp)
             .drawBehind {
                 if (selected) {
                     val radius = CornerRadius(16.dp.toPx())

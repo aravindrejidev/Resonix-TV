@@ -31,7 +31,7 @@
 </p>
 <br/>
 
-[**Features**](#features) · [**Audio Chain**](#audio-chain) · [**Download**](#download) · [**Remote Control**](#remote) · [**Architecture**](#architecture) · [**Contributing**](#contributing) · [**Support**](#support) · [**Disclaimer**](#disclaimer)
+[**Showcase**](#showcase) · [**Features**](#features) · [**Audio Chain**](#audio-chain) · [**Download**](#download) · [**Remote Control**](#remote) · [**Architecture**](#architecture) · [**Contributing**](#contributing) · [**Support**](#support) · [**Disclaimer**](#disclaimer)
 
 <br/>
 
@@ -50,6 +50,45 @@
 Dialogue buried under the soundtrack? Raise the centre channel. A subwoofer that shakes the room at 2 a.m.? Turn the LFE down. A TV with thin speakers? Build your own parametric EQ and keep it for every movie.
 
 No accounts. No ads. No telemetry. Your files stay on your TV; the network is used only to check GitHub for new versions.
+
+---
+
+<a id="showcase"></a>
+## 📸 Showcase
+
+<!-- Add your screenshots to the docs/ folder with these names. -->
+<div align="center">
+  <table>
+    <tr>
+      <td width="33%" align="center">
+        <img src="docs/home.png" alt="Home" width="100%" /><br />
+        <sub><b>Home</b></sub>
+      </td>
+      <td width="33%" align="center">
+        <img src="docs/player.png" alt="Player" width="100%" /><br />
+        <sub><b>Player</b></sub>
+      </td>
+      <td width="33%" align="center">
+        <img src="docs/mixer.png" alt="Channel mixer" width="100%" /><br />
+        <sub><b>Channel Mixer</b></sub>
+      </td>
+    </tr>
+    <tr>
+      <td width="33%" align="center">
+        <img src="docs/graphic-eq.png" alt="Graphic EQ" width="100%" /><br />
+        <sub><b>Graphic EQ</b></sub>
+      </td>
+      <td width="33%" align="center">
+        <img src="docs/parametric-eq.png" alt="Parametric EQ" width="100%" /><br />
+        <sub><b>Parametric EQ</b></sub>
+      </td>
+      <td width="33%" align="center">
+        <img src="docs/settings.png" alt="Settings" width="100%" /><br />
+        <sub><b>Settings</b></sub>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ---
 

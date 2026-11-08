@@ -2,19 +2,20 @@ package com.resonix.tv.ui.home
 
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +43,7 @@ import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.ui.components.NeoHistoryCard
 import com.resonix.tv.ui.components.NeoIcon
+import com.resonix.tv.ui.components.NeoIconView
 import com.resonix.tv.ui.components.NeoIconTile
 import com.resonix.tv.ui.components.NeoSectionHeader
 import com.resonix.tv.ui.components.NeoStorageCard
@@ -69,6 +71,33 @@ private fun NoUsbCard(modifier: Modifier = Modifier) {
         Column {
             NeoText("No USB drive", size = 20.sp, color = NeoColors.TextSecondary, weight = FontWeight.SemiBold)
             NeoText("Plug one into the TV and it shows up here", size = 14.sp, color = NeoColors.TextDim, maxLines = 2)
+        }
+    }
+}
+
+/** Shown instead of the "Recently Watched" row while nothing has been watched yet. */
+@Composable
+private fun NothingWatchedYet(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 6.dp)
+            .neuInset(26.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(24.dp),
+        ) {
+            NeoIconView(NeoIcon.VIDEO, tint = NeoColors.TextDim, iconSize = 64.dp)
+            NeoText("Nothing watched yet", size = 24.sp, color = NeoColors.TextSecondary, weight = FontWeight.SemiBold)
+            NeoText(
+                text = "Open a drive above and play a movie. It shows up here, so you can continue later.",
+                size = 16.sp,
+                color = NeoColors.TextDim,
+                maxLines = 2,
+            )
         }
     }
 }
@@ -110,11 +139,9 @@ fun HomeSection(
     var recentCol by remember { mutableIntStateOf(0) }
     val storageState = rememberLazyListState()
     val recentState = rememberLazyListState()
-    val scroll = rememberScrollState()
 
     LaunchedEffect(storageCol) { storageState.animateScrollToItem(storageCol.coerceAtLeast(0)) }
     LaunchedEffect(recentCol) { recentState.animateScrollToItem(recentCol.coerceAtLeast(0)) }
-    LaunchedEffect(row) { scroll.animateScrollTo(if (row == 0) 0 else scroll.maxValue) }
     LaunchedEffect(storage.size) { storageCol = storageCol.coerceIn(0, (storage.size - 1).coerceAtLeast(0)) }
     LaunchedEffect(recent.size) {
         recentCol = recentCol.coerceIn(0, recent.size)
@@ -181,64 +208,77 @@ fun HomeSection(
         onDispose { if (keys.handler === handler) keys.handler = null }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(scroll),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Column {
-            NeoSectionHeader("Storage Drives", "Browse your connected drives and folders", NeoIcon.DRIVE, Modifier.padding(start = 24.dp))
-            LazyRow(
-                state = storageState,
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
-            ) {
-                itemsIndexed(storage) { index, info ->
-                    val used = (info.totalBytes - info.freeBytes).coerceAtLeast(0L)
-                    val internal = index == 0
-                    NeoStorageCard(
-                        title = if (internal) "Internal Storage" else "USB $index",
-                        subtitle = if (internal) "Local files" else info.root.label.ifBlank { "External storage" },
-                        usageText = "${formatSize(used)} / ${formatSize(info.totalBytes)}",
-                        fraction = if (info.totalBytes > 0) used.toFloat() / info.totalBytes else 0f,
-                        icon = if (internal) NeoIcon.DRIVE else NeoIcon.USB,
-                        accent = if (internal) NeoColors.Cyan else NeoColors.Purple,
-                        accent2 = if (internal) NeoColors.Blue else NeoColors.Pink,
-                        focused = active && row == 0 && storageCol == index,
-                        modifier = Modifier.width(340.dp),
-                    )
-                }
-                if (storage.size < 2) {
-                    item { NoUsbCard(Modifier.width(340.dp)) }
-                }
-            }
-        }
+    // The page fills the screen: drive cards share the width, and the "Recently Watched" row takes
+    // all the height that is left, with pictures as big as that space allows.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val pageWidth = maxWidth.value
+        val visibleCards = maxOf(storage.size, 2).coerceAtMost(3)
+        val storageCardWidth = ((pageWidth - 48f - 20f * (visibleCards - 1)) / visibleCards).coerceIn(340f, 520f).dp
 
-        Column {
-            NeoSectionHeader("Recently Watched", null, NeoIcon.HISTORY, Modifier.padding(start = 24.dp))
-            Spacer(Modifier.height(4.dp))
-            if (recent.isEmpty()) {
-                NeoText(
-                    text = "Nothing watched yet. Open a drive above and play a movie.",
-                    size = 16.sp,
-                    color = NeoColors.TextDim,
-                    modifier = Modifier.padding(start = 24.dp, top = 12.dp),
-                )
-            } else {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Column {
+                NeoSectionHeader("Storage Drives", "Browse your connected drives and folders", NeoIcon.DRIVE, Modifier.padding(start = 24.dp))
                 LazyRow(
-                    state = recentState,
-                    horizontalArrangement = Arrangement.spacedBy(22.dp),
+                    state = storageState,
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
                 ) {
-                    itemsIndexed(recent) { index, entry ->
-                        NeoHistoryCard(
-                            title = entry.title,
-                            durationText = formatTime(entry.durationMs),
-                            progress = entry.progress,
-                            thumbnail = rememberThumbnail(entry.uri),
-                            focused = active && row == 1 && recentCol == index,
+                    itemsIndexed(storage) { index, info ->
+                        val used = (info.totalBytes - info.freeBytes).coerceAtLeast(0L)
+                        val internal = index == 0
+                        NeoStorageCard(
+                            title = if (internal) "Internal Storage" else "USB $index",
+                            subtitle = if (internal) "Local files" else info.root.label.ifBlank { "External storage" },
+                            usageText = "${formatSize(used)} / ${formatSize(info.totalBytes)}",
+                            fraction = if (info.totalBytes > 0) used.toFloat() / info.totalBytes else 0f,
+                            icon = if (internal) NeoIcon.DRIVE else NeoIcon.USB,
+                            accent = if (internal) NeoColors.Cyan else NeoColors.Purple,
+                            accent2 = if (internal) NeoColors.Blue else NeoColors.Pink,
+                            focused = active && row == 0 && storageCol == index,
+                            modifier = Modifier.width(storageCardWidth),
                         )
                     }
-                    item { NeoViewAllTile(focused = active && row == 1 && recentCol == recent.size) }
+                    if (storage.size < 2) {
+                        item { NoUsbCard(Modifier.width(storageCardWidth)) }
+                    }
+                }
+            }
+
+            Column(Modifier.weight(1f).fillMaxWidth()) {
+                NeoSectionHeader("Recently Watched", null, NeoIcon.HISTORY, Modifier.padding(start = 24.dp))
+                if (recent.isEmpty()) {
+                    NothingWatchedYet(Modifier.weight(1f))
+                } else {
+                    BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                        // 28 dp = space above and below the row, 44 dp = the title under each picture
+                        val pictureWidth = ((maxHeight.value - 28f - 44f) * 16f / 9f).coerceIn(200f, 420f)
+                        LazyRow(
+                            state = recentState,
+                            horizontalArrangement = Arrangement.spacedBy(22.dp),
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
+                        ) {
+                            itemsIndexed(recent) { index, entry ->
+                                NeoHistoryCard(
+                                    title = entry.title,
+                                    durationText = formatTime(entry.durationMs),
+                                    progress = entry.progress,
+                                    thumbnail = rememberThumbnail(entry.uri),
+                                    focused = active && row == 1 && recentCol == index,
+                                    cardWidth = pictureWidth.dp,
+                                )
+                            }
+                            item {
+                                NeoViewAllTile(
+                                    focused = active && row == 1 && recentCol == recent.size,
+                                    tileWidth = (pictureWidth * 0.7f).dp,
+                                    tileHeight = (pictureWidth * 9f / 16f).dp,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.resonix.tv.BuildConfig
+import com.resonix.tv.audio.AudioPipeline
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.PlayRequest
@@ -44,6 +45,7 @@ import com.resonix.tv.ui.eq.EqSection
 import com.resonix.tv.ui.home.HomeSection
 import com.resonix.tv.ui.settings.SettingsSection
 import com.resonix.tv.ui.theme.NeoColors
+import com.resonix.tv.ui.theme.neuInset
 import com.resonix.tv.ui.update.UpdateSection
 import com.resonix.tv.update.UpdateController
 import java.io.File
@@ -110,6 +112,31 @@ private fun NeoStatusBar(modifier: Modifier = Modifier) {
     }
 }
 
+/** Small card at the bottom of the side menu: which EQ is working and which preset is loaded. */
+@Composable
+private fun NeoSoundCard(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val dsp = remember { AudioPipeline.controller(context) }
+    val on = dsp.eqEnabled
+    Column(
+        modifier = modifier.fillMaxWidth().neuInset(18.dp).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            NeoIconView(NeoIcon.EQ, tint = if (on) NeoColors.Cyan else NeoColors.TextDim, iconSize = 20.dp)
+            Spacer(Modifier.width(8.dp))
+            NeoText("SOUND", size = 12.sp, color = NeoColors.TextDim, weight = FontWeight.SemiBold)
+        }
+        NeoText(
+            text = if (on) "${dsp.eqMode.label} EQ" else "EQ is off",
+            size = 18.sp,
+            color = if (on) Color.White else NeoColors.TextSecondary,
+            weight = FontWeight.SemiBold,
+        )
+        NeoText(dsp.presetName ?: "Custom sound", size = 13.sp, color = NeoColors.TextSecondary)
+    }
+}
+
 /**
  * Left navigation bar + pages. Two zones: the bar and the page. RIGHT / OK enters the page,
  * LEFT (or BACK) on the left edge of a page returns to the bar.
@@ -170,23 +197,30 @@ fun MainShell(
     Row(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.width(246.dp).fillMaxHeight().padding(start = 26.dp, end = 18.dp, top = 30.dp, bottom = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row {
-                NeoText("Resonix", size = 32.sp, weight = FontWeight.Bold, color = Color.White)
-                NeoText("TV", size = 32.sp, weight = FontWeight.Bold, color = NeoColors.Cyan)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row {
+                    NeoText("Resonix", size = 32.sp, weight = FontWeight.Bold, color = Color.White)
+                    NeoText("TV", size = 32.sp, weight = FontWeight.Bold, color = NeoColors.Cyan)
+                }
+                NeoText("Home-cinema audio", size = 13.sp, color = NeoColors.TextDim)
             }
-            Spacer(Modifier.height(26.dp))
-            Section.entries.forEach { entry ->
-                NeoSidebarItem(
-                    label = entry.label,
-                    icon = entry.icon,
-                    selected = entry == section,
-                    focused = inSidebar && entry == section,
-                    badge = entry == Section.UPDATE && updates.updateAvailable,
-                )
+            Column(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+            ) {
+                Section.entries.forEach { entry ->
+                    NeoSidebarItem(
+                        label = entry.label,
+                        icon = entry.icon,
+                        selected = entry == section,
+                        focused = inSidebar && entry == section,
+                        badge = entry == Section.UPDATE && updates.updateAvailable,
+                    )
+                }
             }
-            Spacer(Modifier.weight(1f))
+            NeoSoundCard()
+            Spacer(Modifier.height(14.dp))
             NeoText("Version ${BuildConfig.VERSION_NAME}", size = 12.sp, color = NeoColors.TextDim)
         }
 
