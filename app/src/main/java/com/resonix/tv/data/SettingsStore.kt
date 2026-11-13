@@ -20,6 +20,9 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     /** Subtitle text size in percent of the normal size. */
     var subtitleSizePercent by mutableIntStateOf(prefs.getInt("subtitle_size", 100))
         private set
+    /** Ask the TV to switch to the movie's frame rate (24p, 25p ...). The screen blinks once. */
+    var matchFrameRate by mutableStateOf(prefs.getBoolean("match_fps", false))
+        private set
     var resumePlayback by mutableStateOf(prefs.getBoolean("resume", true))
         private set
     var autoSubtitles by mutableStateOf(prefs.getBoolean("auto_subtitles", true))
@@ -47,6 +50,11 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     fun cycleUiScale() {
         uiScalePercent = next(UI_SCALES, uiScalePercent)
         prefs.edit().putInt(KEY_UI_SCALE, uiScalePercent).apply()
+    }
+
+    fun toggleMatchFrameRate() {
+        matchFrameRate = !matchFrameRate
+        prefs.edit().putBoolean("match_fps", matchFrameRate).apply()
     }
 
     fun stepSubtitleSize(delta: Int) {

@@ -83,6 +83,10 @@ fun SettingsSection(active: Boolean, keys: SectionKeys, onOpenDiagnostics: () ->
                 valueText = "${settings.osdSeconds} s", onSelect = { settings.cycleOsdSeconds() }),
         ),
         SettingLine.Entry(
+            SettingEntry("Match frame rate (24p)", "Switches the TV to the movie's frame rate for smoother motion. The screen goes black for a moment", NeoIcon.VIDEO,
+                toggle = settings.matchFrameRate, onSelect = { settings.toggleMatchFrameRate() }),
+        ),
+        SettingLine.Entry(
             SettingEntry("Resume where you stopped", "Continue a movie from the last position", NeoIcon.HISTORY,
                 toggle = settings.resumePlayback, onSelect = { settings.toggleResume() }),
         ),
@@ -119,7 +123,7 @@ fun SettingsSection(active: Boolean, keys: SectionKeys, onOpenDiagnostics: () ->
         ),
         SettingLine.Header("SYSTEM"),
         SettingLine.Entry(
-            SettingEntry("Diagnostics", "Audio engine, FFmpeg decoders, remote keys", NeoIcon.SETTINGS,
+            SettingEntry("Diagnostics", "Audio engine, FFmpeg decoders, remote keys, error log", NeoIcon.SETTINGS,
                 chevron = true, onSelect = { currentOnDiagnostics() }),
         ),
         SettingLine.Entry(

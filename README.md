@@ -123,6 +123,9 @@ No accounts. No ads. No telemetry. Your files stay on your TV; the network is us
 - **Audio & subtitle tracks** — switch language or subtitle on the fly, without leaving the movie.
 - **Subtitle files** — `.srt`, `.vtt`, `.ass` and `.ssa` files next to the movie are found and (optionally) switched on automatically. The size is adjustable in Settings (75 % – 200 %).
 - **Resume** — continue where you stopped, with preview pictures in *Recently Watched*. The movie pauses by itself when you press HOME or the TV goes to sleep, and returns to the list when it ends.
+- **Match frame rate (24p)** — optional. The TV switches to the movie's frame rate, so slow pans stop juddering. The screen blinks once while it changes.
+- **Playback info** — the *Info* tab of the audio panel shows codec, resolution, HDR, bitrate, which decoders really run (hardware or software, FFmpeg or the TV's own), dropped frames, buffer and the screen mode.
+- **Self-healing** — after a hiccup (a USB drive that woke up late, a decoder that stumbled) the movie restarts by itself, up to twice. Errors are explained in plain words.
 - **On-screen display** — title, progress, buffering, audio format; it hides itself after a time you choose.
 - **Fast seeking** — 5, 10, 15 or 30 seconds per press (hold the key to jump further), landing on the nearest keyframe so it stays instant even in big 4K files.
 
@@ -133,7 +136,7 @@ No accounts. No ads. No telemetry. Your files stay on your TV; the network is us
 
 #### Tools
 - **In-app updater** — checks GitHub Releases and installs the build that matches your TV's CPU.
-- **Diagnostics** — shows the audio engine, the FFmpeg decoders and the remote keys the app receives.
+- **Diagnostics and error log** — shows the audio engine, the FFmpeg decoders, the remote keys the app receives and the newest lines of a log file that records crashes, player errors and decoders. Send it along when you report a problem.
 - **DSP self-test** — the C++ engine tests itself against theory, on the device and on every release build.
 
     </td>
@@ -378,6 +381,7 @@ pie showData title What ResonixTV is made of (non-blank lines of code)
 - [x] FFmpeg decoders for DTS, TrueHD and E-AC3
 - [x] One APK per CPU type, with an in-app updater that picks the right one
 - [x] Adjustable subtitle size
+- [x] Match frame rate (24p), playback info tab, automatic recovery and an error log
 
 **Ideas**
 - [ ] Audio delay, to fix lip-sync on soundbars and receivers
@@ -394,7 +398,7 @@ Have an idea? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issue
 
 Contributions are welcome, whether it's a bug fix, a new feature, or better wording.
 
-- Something not working on your TV? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issues) with the TV or box model, the Android version, the file's audio format (for example *DTS 5.1*) and what you expected. The **Diagnostics** page in Settings shows most of this.
+- Something not working on your TV? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issues) with the TV or box model, the Android version, the file's audio format (for example *DTS 5.1*) and what you expected. The **Diagnostics** page in Settings shows most of this, and the log file `Android/data/com.resonix.tv/files/resonix-log.txt` tells the rest.
 - For bigger changes, open an issue first so we can talk it through.
 - Pull requests should build cleanly and keep the **DSP self-test** passing.
 

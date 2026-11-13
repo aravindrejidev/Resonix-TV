@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.resonix.tv.audio.DspNative
+import com.resonix.tv.diag.AppLog
 import com.resonix.tv.input.RemoteKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -48,6 +49,9 @@ fun DiagnosticsScreen(
     val focusRequester = remember { FocusRequester() }
     var hasFocus by remember { mutableStateOf(false) }
     var composeKey by remember { mutableStateOf("-") }
+
+    // The newest lines of the error log (crashes, player errors, decoders, dropped frames).
+    val logLines = remember { AppLog.tail(8) }
 
     val dspSummary by produceState(initialValue = "DSP self-test: running...") {
         value = withContext(Dispatchers.Default) {
@@ -102,6 +106,16 @@ fun DiagnosticsScreen(
                 text = "Compose: focus " + (if (hasFocus) "yes" else "NO") + " | key " + composeKey,
                 style = infoStyle(if (hasFocus) grey else Color(0xFFFFB74D)),
             )
+            BasicText(
+                text = "Error log: " + AppLog.path(),
+                style = TextStyle(color = Color(0xFFE6E8EC), fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+            )
+            if (logLines.isEmpty()) {
+                BasicText(text = "(nothing logged yet)", style = TextStyle(color = grey, fontSize = 14.sp))
+            }
+            logLines.forEach { line ->
+                BasicText(text = line.take(130), style = TextStyle(color = grey, fontSize = 14.sp), maxLines = 1)
+            }
             BasicText(text = "Press BACK to return", style = infoStyle(Color(0xFF5C6370)))
         }
     }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -18,9 +19,11 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +36,13 @@ import com.resonix.tv.audio.DspController
 import com.resonix.tv.audio.DspPresets
 import com.resonix.tv.audio.EqMode
 import com.resonix.tv.input.RemoteKey
+import com.resonix.tv.player.FrameRateMatcher
+import com.resonix.tv.player.PlaybackStats
+import com.resonix.tv.player.audioDecoderLabel
+import com.resonix.tv.player.bitDepthText
+import com.resonix.tv.player.hdrName
+import com.resonix.tv.player.videoCodecName
+import com.resonix.tv.player.videoDecoderLabel
 import com.resonix.tv.ui.channelLayoutName
 import com.resonix.tv.ui.components.NeoEqCurve
 import com.resonix.tv.ui.components.NeoFader
@@ -46,12 +56,14 @@ import com.resonix.tv.ui.formatFreq
 import com.resonix.tv.ui.theme.NeoColors
 import com.resonix.tv.ui.theme.neuRaised
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 enum class PanelTab(val title: String) {
     TRACKS("Audio & Subtitles"),
     CHANNELS("Channels"),
     EQUALIZER("Equalizer"),
     PRESETS("Presets"),
+    INFO("Info"),
 }
 
 /** Where the D-pad cursor is inside the sliding panel. */
@@ -209,7 +221,7 @@ class AudioPanelController(
             when (key) {
                 RemoteKey.LEFT -> switchTab(-1)
                 RemoteKey.RIGHT -> switchTab(1)
-                RemoteKey.DOWN, RemoteKey.SELECT -> enterContent()
+                RemoteKey.DOWN, RemoteKey.SELECT -> if (state.tab != PanelTab.INFO) enterContent()
                 RemoteKey.UP, RemoteKey.MENU -> state.hide()
                 else -> Unit
             }
@@ -219,6 +231,7 @@ class AudioPanelController(
             PanelTab.TRACKS, PanelTab.PRESETS -> listKey(key)
             PanelTab.CHANNELS -> faderKey(key, repeat)
             PanelTab.EQUALIZER -> eqKey(key, repeat)
+            PanelTab.INFO -> Unit // read-only, the cursor never enters it
         }
         return true
     }
@@ -336,6 +349,10 @@ fun AudioPanel(
     formatInfo: String,
     meters: List<Float>,
     sampleRate: Int,
+    stats: PlaybackStats,
+    videoFormat: Format?,
+    audioFormat: Format?,
+    bufferAheadMs: Long,
     modifier: Modifier = Modifier,
 ) {
     val state = controller.state
@@ -368,6 +385,7 @@ fun AudioPanel(
                 PanelTab.CHANNELS -> ChannelsContent(state, dsp, controller.displayedChannels(), channelCount, meters)
                 PanelTab.EQUALIZER -> EqualizerContent(state, dsp, sampleRate)
                 PanelTab.PRESETS -> PresetsContent(state, dsp)
+                PanelTab.INFO -> InfoContent(stats, videoFormat, audioFormat, bufferAheadMs)
             }
         }
 
@@ -498,6 +516,89 @@ private fun EqualizerContent(state: PanelState, dsp: DspController, sampleRate: 
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     showMarkers = true,
                 )
+            }
+        }
+    }
+}
+
+private fun formatFps(fps: Float): String =
+    String.format(Locale.US, "%.3f", fps).trimEnd('0').trimEnd('.')
+
+private fun formatMbps(bitsPerSecond: Int): String =
+    if (bitsPerSecond > 0) String.format(Locale.US, "%.1f Mb/s", bitsPerSecond / 1_000_000f) else "-"
+
+/** Read-only facts about the movie that is playing: handy to find out why something stutters. */
+@Composable
+private fun InfoContent(stats: PlaybackStats, video: Format?, audio: Format?, bufferAheadMs: Long) {
+    val view = LocalView.current
+    var screenMode by remember { mutableStateOf("-") }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val mode = view.display?.mode
+            screenMode = if (mode != null) FrameRateMatcher.describe(mode) else "-"
+            delay(1000)
+        }
+    }
+
+    val picture = if (video != null && video.width > 0) {
+        val size = "${video.width} x ${video.height}"
+        if (video.frameRate > 0f) "$size  |  ${formatFps(video.frameRate)} fps" else size
+    } else {
+        "-"
+    }
+    val colour = if (video != null) {
+        listOf(hdrName(video), bitDepthText(video)).filter { it.isNotEmpty() }.joinToString("  |  ")
+    } else {
+        "-"
+    }
+
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        horizontalArrangement = Arrangement.spacedBy(28.dp),
+    ) {
+        InfoColumn(
+            title = "VIDEO",
+            modifier = Modifier.weight(1.3f),
+            rows = listOf(
+                "Codec" to (if (video != null) videoCodecName(video.sampleMimeType) else "-"),
+                "Picture" to picture,
+                "Colour" to colour,
+                "Bitrate" to (if (video != null) formatMbps(video.bitrate) else "-"),
+                "Decoder" to videoDecoderLabel(stats.videoDecoder),
+                "Dropped frames" to stats.droppedFrames.toString(),
+            ),
+        )
+        InfoColumn(
+            title = "AUDIO",
+            modifier = Modifier.weight(1.1f),
+            rows = listOf(
+                "Codec" to (if (audio != null) codecName(audio.sampleMimeType) else "-"),
+                "Channels" to (if (audio != null && audio.channelCount > 0) channelLayoutName(audio.channelCount) else "-"),
+                "Sample rate" to (if (audio != null && audio.sampleRate > 0) String.format(Locale.US, "%.1f kHz", audio.sampleRate / 1000f) else "-"),
+                "Bitrate" to (if (audio != null) formatMbps(audio.bitrate) else "-"),
+                "Decoder" to audioDecoderLabel(stats.audioDecoder),
+            ),
+        )
+        InfoColumn(
+            title = "SCREEN",
+            modifier = Modifier.weight(1f),
+            rows = listOf(
+                "Mode" to screenMode,
+                "Frame rate" to stats.frameRateNote,
+                "Buffer ahead" to "${(bufferAheadMs / 1000L).coerceAtLeast(0L)} s",
+            ),
+        )
+    }
+}
+
+@Composable
+private fun InfoColumn(title: String, rows: List<Pair<String, String>>, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        NeoText(title, size = 13.sp, color = NeoColors.TextDim, weight = FontWeight.SemiBold)
+        rows.forEach { row ->
+            Row(verticalAlignment = Alignment.Top) {
+                NeoText(row.first, size = 14.sp, color = NeoColors.TextDim, modifier = Modifier.width(118.dp))
+                NeoText(row.second, size = 15.sp, color = NeoColors.TextPrimary, maxLines = 2, modifier = Modifier.weight(1f))
             }
         }
     }

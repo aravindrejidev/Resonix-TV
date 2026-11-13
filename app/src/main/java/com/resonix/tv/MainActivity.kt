@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.resonix.tv.audio.AudioPipeline
 import com.resonix.tv.audio.NativeBridge
+import com.resonix.tv.diag.AppLog
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.FfmpegInfo
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
 
+        AppLog.init(applicationContext)
         warmUp()
 
         setContent {

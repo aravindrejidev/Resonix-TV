@@ -1,5 +1,8 @@
 package com.resonix.tv.ui.player
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -39,13 +42,19 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import com.resonix.tv.audio.AudioPipeline
+import com.resonix.tv.diag.AppLog
 import com.resonix.tv.data.HistoryStore
 import com.resonix.tv.data.SettingsStore
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
+import com.resonix.tv.player.FrameRateMatcher
 import com.resonix.tv.player.PlayRequest
+import com.resonix.tv.player.PlaybackStats
 import com.resonix.tv.player.PlayerLifecycle
 import com.resonix.tv.player.PlayerFactory
+import com.resonix.tv.player.hdrName
+import com.resonix.tv.player.selectedVideoFormat
+import com.resonix.tv.player.videoCodecName
 import com.resonix.tv.ui.channelLayoutName
 import com.resonix.tv.ui.components.NeoText
 import com.resonix.tv.ui.panel.AudioPanel
@@ -58,6 +67,7 @@ import com.resonix.tv.ui.panel.codecName
 import com.resonix.tv.ui.panel.selectedAudioFormat
 import com.resonix.tv.ui.theme.NeoColors
 import com.resonix.tv.ui.theme.neuRaised
+import kotlin.math.abs
 import kotlin.math.log10
 import kotlinx.coroutines.delay
 
@@ -73,6 +83,18 @@ private fun seekBy(player: Player, deltaMs: Long) {
     val duration = player.duration
     val limit = if (duration == C.TIME_UNSET || duration <= 0) Long.MAX_VALUE else duration
     player.seekTo((player.currentPosition + deltaMs).coerceIn(0L, limit))
+}
+
+/** Remembers how many times a failed movie was restarted by itself. */
+private class RecoveryTracker {
+    var attempts = 0
+    var lastPositionMs = 0L
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /** Switches the audio track / subtitle on the fly. */
@@ -107,6 +129,11 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     val dsp = remember { AudioPipeline.controller(context) } // restores saved EQ/channel settings first
     val exo = remember { PlayerFactory.create(context) }
     val ui = remember(exo) { PlayerUiState(exo) }
+    val stats = remember(exo) { PlaybackStats() }
+    val recovery = remember { RecoveryTracker() }
+    var recovering by remember { mutableStateOf(false) }
+    val videoFormat = remember(ui.tracks) { selectedVideoFormat(ui.tracks) }
+    val audioFormat = remember(ui.tracks) { selectedAudioFormat(ui.tracks) }
     val panel = remember { PanelState() }
     val streamFormat by AudioPipeline.engine.format.collectAsState()
     val currentOnExit by rememberUpdatedState(onExit)
@@ -149,6 +176,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
 
     DisposableEffect(exo) {
         ui.attach()
+        exo.addAnalyticsListener(stats)
         // HOME button, TV sleep, screen saver: pause the movie (it must not keep playing in the
         // background) and remember where it stopped.
         val stopHandler: () -> Unit = {
@@ -160,6 +188,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
             if (PlayerLifecycle.onAppStopped === stopHandler) PlayerLifecycle.onAppStopped = null
             saveProgress()
             ui.detach()
+            exo.removeAnalyticsListener(stats)
             exo.release()
         }
     }
@@ -179,6 +208,34 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
             delay(1500)
             currentOnExit()
         }
+    }
+
+    // A hiccup (a USB drive waking up, a decoder that stumbled): try again by itself, up to twice,
+    // before the error message asks you to do it.
+    LaunchedEffect(ui.error) {
+        if (ui.error == null) return@LaunchedEffect
+        val position = exo.currentPosition
+        if (abs(position - recovery.lastPositionMs) > 15_000L) recovery.attempts = 0
+        recovery.lastPositionMs = position
+        if (ui.errorRetryable && recovery.attempts < 2) {
+            recovery.attempts++
+            AppLog.log("RECOVER", "automatic retry ${recovery.attempts} of 2 at ${position / 1000} s")
+            recovering = true
+            try {
+                delay(1500)
+                retryAfterError()
+            } finally {
+                recovering = false
+            }
+        }
+    }
+
+    // One line in the log per movie: what is being played (helps when something goes wrong).
+    LaunchedEffect(videoFormat, audioFormat) {
+        if (videoFormat == null && audioFormat == null) return@LaunchedEffect
+        val video = videoFormat?.let { "${videoCodecName(it.sampleMimeType)} ${it.width}x${it.height} ${hdrName(it)}" } ?: "-"
+        val audio = audioFormat?.let { "${codecName(it.sampleMimeType)} ${it.channelCount} ch" } ?: "-"
+        AppLog.log("PLAY", "$title | video: $video | audio: $audio")
     }
 
     LaunchedEffect(request) {
@@ -214,6 +271,39 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     DisposableEffect(view) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
+    }
+
+    // "Match frame rate": switch the TV to the movie's frame rate (24p ...), see FrameRateMatcher.
+    val activity = remember(view) { view.context.findActivity() }
+    val movieFps = videoFormat?.frameRate ?: -1f
+    LaunchedEffect(settings.matchFrameRate, movieFps) {
+        val host = activity
+        val display = view.display
+        when {
+            host == null || display == null -> stats.frameRateNote = "Not available"
+            !settings.matchFrameRate -> {
+                FrameRateMatcher.apply(host, null)
+                stats.frameRateNote = "Off (Settings > Match frame rate)"
+            }
+            movieFps <= 0f -> stats.frameRateNote = "Waiting for the movie"
+            else -> {
+                val mode = FrameRateMatcher.choose(display, movieFps)
+                if (mode == null) {
+                    stats.frameRateNote = "This TV has no mode for $movieFps fps"
+                    AppLog.log("FRAME_RATE", "no matching display mode for $movieFps fps")
+                } else if (mode.modeId == display.mode.modeId) {
+                    stats.frameRateNote = "Matched: ${FrameRateMatcher.describe(mode)}"
+                } else {
+                    FrameRateMatcher.apply(host, mode)
+                    stats.frameRateNote = "Switched to ${FrameRateMatcher.describe(mode)}"
+                    AppLog.log("FRAME_RATE", "movie $movieFps fps -> ${FrameRateMatcher.describe(mode)}")
+                }
+            }
+        }
+    }
+    // Leaving the movie: give the TV its normal mode back.
+    DisposableEffect(activity) {
+        onDispose { activity?.let { FrameRateMatcher.apply(it, null) } }
     }
 
     // OSD hides itself 4 s after the last key press while playing.
@@ -354,9 +444,13 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
                     .padding(28.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                NeoText("Cannot play this file", size = 24.sp, color = NeoColors.Danger)
+                NeoText(if (recovering) "Playback problem" else "Cannot play this file", size = 24.sp, color = NeoColors.Danger)
                 NeoText(errorText, size = 16.sp, color = NeoColors.TextSecondary, maxLines = 4)
-                NeoText("Press OK to try again   |   BACK to return", size = 14.sp, color = NeoColors.TextDim)
+                NeoText(
+                    text = if (recovering) "Trying again by itself..." else "Press OK to try again   |   BACK to return",
+                    size = 14.sp,
+                    color = NeoColors.TextDim,
+                )
             }
         } else if (ui.playbackState == Player.STATE_BUFFERING) {
             NeoText("Buffering...", size = 22.sp, color = NeoColors.TextSecondary, modifier = Modifier.align(Alignment.Center))
@@ -392,6 +486,10 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
                 formatInfo = formatInfo,
                 meters = meters,
                 sampleRate = streamFormat.sampleRate,
+                stats = stats,
+                videoFormat = videoFormat,
+                audioFormat = audioFormat,
+                bufferAheadMs = ui.bufferedMs - ui.positionMs,
             )
         }
     }
