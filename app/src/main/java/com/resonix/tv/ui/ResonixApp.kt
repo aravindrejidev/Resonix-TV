@@ -102,7 +102,12 @@ fun ResonixApp(
                     onExit = { pop() },
                 )
                 is Overlay.Player -> key(top.request.uri) {
-                    PlayerScreen(top.request, onExit = { pop() })
+                    PlayerScreen(
+                        request = top.request,
+                        onExit = { pop() },
+                        // The next movie takes the place of the finished one.
+                        onPlayNext = { next -> if (stack.isNotEmpty()) stack[stack.lastIndex] = Overlay.Player(next) },
+                    )
                 }
                 Overlay.Diagnostics -> DiagnosticsScreen(
                     nativeInfo = nativeInfo,

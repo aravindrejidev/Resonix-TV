@@ -39,10 +39,12 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import com.resonix.tv.audio.AudioPipeline
 import com.resonix.tv.diag.AppLog
+import com.resonix.tv.data.FileBrowser
 import com.resonix.tv.data.HistoryStore
 import com.resonix.tv.data.SettingsStore
 import com.resonix.tv.input.KeyRouter
@@ -69,7 +71,9 @@ import com.resonix.tv.ui.theme.NeoColors
 import com.resonix.tv.ui.theme.neuRaised
 import kotlin.math.abs
 import kotlin.math.log10
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /** One tap = the step from Settings; while the key is held, every 5th repeat jumps three steps. */
 private fun seekStep(repeat: Int, baseMs: Long): Long = when {
@@ -85,6 +89,16 @@ private fun seekBy(player: Player, deltaMs: Long) {
     player.seekTo((player.currentPosition + deltaMs).coerceIn(0L, limit))
 }
 
+/** Subtitles in [textColor] with a black outline and no box behind them. */
+private fun outlineStyle(textColor: Int): CaptionStyleCompat = CaptionStyleCompat(
+    textColor,
+    android.graphics.Color.TRANSPARENT,
+    android.graphics.Color.TRANSPARENT,
+    CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+    android.graphics.Color.BLACK,
+    null,
+)
+
 /** Remembers how many times a failed movie was restarted by itself. */
 private class RecoveryTracker {
     var attempts = 0
@@ -95,6 +109,22 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
+}
+
+/** Notes the language of a track the viewer picked, so the next movie starts with it. */
+private fun rememberChoice(settings: SettingsStore, choice: TrackItem.Choice) {
+    val group = choice.group
+    val language = group?.getTrackFormat(choice.trackIndex)?.language
+    val usable = !language.isNullOrBlank() && language != "und"
+    if (choice.isText) {
+        if (group == null) {
+            settings.rememberSubtitleLanguage("off")
+        } else if (usable && language != null) {
+            settings.rememberSubtitleLanguage(language)
+        }
+    } else if (usable && language != null) {
+        settings.rememberAudioLanguage(language)
+    }
 }
 
 /** Switches the audio track / subtitle on the fly. */
@@ -120,7 +150,7 @@ fun selectTrack(player: Player, choice: TrackItem.Choice) {
  *   DOWN or MENU: audio panel          BACK: close panel, hide OSD, then leave
  */
 @Composable
-fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
+fun PlayerScreen(request: PlayRequest, onExit: () -> Unit, onPlayNext: (PlayRequest) -> Unit) {
     val context = LocalContext.current
     val title = request.title
     val uriKey = request.uri.toString()
@@ -137,6 +167,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     val panel = remember { PanelState() }
     val streamFormat by AudioPipeline.engine.format.collectAsState()
     val currentOnExit by rememberUpdatedState(onExit)
+    val currentOnPlayNext by rememberUpdatedState(onPlayNext)
 
     var osdVisible by remember { mutableStateOf(true) }
     var osdTick by remember { mutableIntStateOf(0) }
@@ -170,7 +201,12 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
             dsp = dsp,
             channelCount = { AudioPipeline.engine.format.value.channelCount },
             trackItems = { buildTrackItems(ui.tracks) },
-            onChoose = { choice -> selectTrack(exo, choice) },
+            onChoose = { choice ->
+                selectTrack(exo, choice)
+                if (settings.rememberTracks) rememberChoice(settings, choice)
+            },
+            pictureMode = { settings.pictureMode },
+            onPictureMode = { mode -> settings.selectPictureMode(mode) },
         )
     }
 
@@ -206,7 +242,12 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
         if (ui.playbackState == Player.STATE_ENDED) {
             saveProgress()
             delay(1500)
-            currentOnExit()
+            val next = if (settings.autoplayNext) {
+                withContext(Dispatchers.IO) { FileBrowser.findNextFor(request.uri) }
+            } else {
+                null
+            }
+            if (next != null) currentOnPlayNext(next) else currentOnExit()
         }
     }
 
@@ -251,6 +292,18 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
                 .setLabel(source.label)
                 .setSelectionFlags(if (index == 0 && settings.autoSubtitles) C.SELECTION_FLAG_DEFAULT else 0)
                 .build()
+        }
+        if (settings.rememberTracks) {
+            val params = exo.trackSelectionParameters.buildUpon()
+            if (settings.preferredAudioLanguage.isNotEmpty()) {
+                params.setPreferredAudioLanguage(settings.preferredAudioLanguage)
+            }
+            when (val subtitleLanguage = settings.preferredSubtitleLanguage) {
+                "" -> Unit
+                "off" -> params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                else -> params.setPreferredTextLanguage(subtitleLanguage)
+            }
+            exo.trackSelectionParameters = params.build()
         }
         exo.setMediaItem(
             MediaItem.Builder().setUri(request.uri).setSubtitleConfigurations(subtitles).build(),
@@ -413,6 +466,9 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
     }
 
     val subtitleSizePercent = settings.subtitleSizePercent
+    val subtitleStyle = settings.subtitleStyle
+    val subtitleBottomPadding = SettingsStore.SUBTITLE_BOTTOM_PADDING.getOrElse(settings.subtitleHeight) { 0.08f }
+    val pictureMode = settings.pictureMode
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         AndroidView(
@@ -430,7 +486,21 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
             },
             // Subtitle size from Settings (100 % = Media3's normal size).
             update = { view ->
-                view.subtitleView?.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * subtitleSizePercent / 100f)
+                view.resizeMode = when (pictureMode) {
+                    1 -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    2 -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
+                val subtitles = view.subtitleView
+                if (subtitles != null) {
+                    subtitles.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * subtitleSizePercent / 100f)
+                    subtitles.setBottomPaddingFraction(subtitleBottomPadding)
+                    when (subtitleStyle) {
+                        1 -> subtitles.setStyle(outlineStyle(android.graphics.Color.WHITE))
+                        2 -> subtitles.setStyle(outlineStyle(0xFFFFEB3B.toInt()))
+                        else -> subtitles.setUserDefaultStyle()
+                    }
+                }
             },
         )
 
@@ -486,6 +556,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit) {
                 formatInfo = formatInfo,
                 meters = meters,
                 sampleRate = streamFormat.sampleRate,
+                pictureMode = pictureMode,
                 stats = stats,
                 videoFormat = videoFormat,
                 audioFormat = audioFormat,

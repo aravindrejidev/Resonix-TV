@@ -15,7 +15,7 @@ object PlayerFactory {
 
     @OptIn(UnstableApi::class)
     fun create(context: Context): ExoPlayer {
-        val renderersFactory = ResonixRenderersFactory(context, AudioPipeline.processor)
+        val renderersFactory = ResonixRenderersFactory(context, AudioPipeline.nightMode, AudioPipeline.processor)
             // PREFER: FFmpeg decoders (DTS, TrueHD, E-AC3 ...) win over MediaCodec when available.
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             .setEnableDecoderFallback(true)

@@ -100,6 +100,22 @@ fun SettingsSection(active: Boolean, keys: SectionKeys, onOpenDiagnostics: () ->
                 onSelect = { settings.cycleSubtitleSize() },
                 onAdjust = { settings.stepSubtitleSize(it) }),
         ),
+        SettingLine.Entry(
+            SettingEntry("Subtitle style", "How subtitles look: your TV's caption style, or a clear outline", NeoIcon.VIDEO,
+                valueText = settings.subtitleStyleName, onSelect = { settings.cycleSubtitleStyle() }),
+        ),
+        SettingLine.Entry(
+            SettingEntry("Subtitle height", "Raise subtitles if your TV cuts off the bottom of the picture", NeoIcon.VIDEO,
+                valueText = settings.subtitleHeightName, onSelect = { settings.cycleSubtitleHeight() }),
+        ),
+        SettingLine.Entry(
+            SettingEntry("Remember audio and subtitle language", "The next movie starts with the language you picked last", NeoIcon.PLAY,
+                toggle = settings.rememberTracks, onSelect = { settings.toggleRememberTracks() }),
+        ),
+        SettingLine.Entry(
+            SettingEntry("Play the next file automatically", "When a movie ends, play the next file in the same folder", NeoIcon.PLAY,
+                toggle = settings.autoplayNext, onSelect = { settings.toggleAutoplayNext() }),
+        ),
         SettingLine.Header("AUDIO"),
         SettingLine.Entry(
             SettingEntry("Channel mixer and EQ", "Off = sound goes through untouched (graphic and parametric EQ)", NeoIcon.EQ,

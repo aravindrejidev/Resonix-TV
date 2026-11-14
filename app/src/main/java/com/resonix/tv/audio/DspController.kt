@@ -3,6 +3,7 @@ package com.resonix.tv.audio
 import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -34,6 +35,14 @@ class DspController(
     var presetName by mutableStateOf<String?>("Flat")
         private set
     var processingEnabled by mutableStateOf(true)
+        private set
+
+    /** Night mode: 0 = off, 1 = light, 2 = strong (see [NightModeProcessor]). */
+    var nightLevel by mutableIntStateOf(0)
+        private set
+
+    /** Which of the saved parametric EQ profiles is loaded (0 .. PARAM_PROFILES - 1). */
+    var paramProfile by mutableIntStateOf(0)
         private set
 
     val channelDb = mutableStateListOf<Float>().apply { repeat(MAX_CH) { add(0f) } }
@@ -71,6 +80,27 @@ class DspController(
         channelMute[index] = !channelMute[index]
         engine.setChannelMute(index, channelMute[index])
         changed()
+    }
+
+    // ---- night mode ----
+    val nightLabel: String
+        get() = when (nightLevel) {
+            1 -> "LIGHT"
+            2 -> "STRONG"
+            else -> "OFF"
+        }
+
+    fun selectNightLevel(level: Int) {
+        nightLevel = level.coerceIn(0, 2)
+        pushNight()
+        prefs.edit().putInt("night", nightLevel).apply()
+    }
+
+    fun cycleNightLevel() = selectNightLevel((nightLevel + 1) % 3)
+
+    private fun pushNight() {
+        // "Channel mixer and EQ" switched off = sound goes through untouched, also without night mode.
+        AudioPipeline.nightMode.level = if (processingEnabled) nightLevel else 0
     }
 
     // ---- equalizer: on / off and which one ----
@@ -179,6 +209,19 @@ class DspController(
         if (band.enabled != enabled) setParamBand(index, band.copy(enabled = enabled))
     }
 
+    /** Loads another saved parametric EQ profile (the one you leave stays saved as it is). */
+    fun selectParamProfile(profile: Int) {
+        val target = profile.coerceIn(0, PARAM_PROFILES - 1)
+        if (target == paramProfile) return
+        paramProfile = target
+        loadParamProfile(target)
+        if (eqMode == EqMode.PARAMETRIC) {
+            pushEqBands()
+            presetName = null
+        }
+        prefs.edit().putInt("param_profile", target).apply()
+    }
+
     fun resetParamBand(index: Int) {
         val default = EqDefaults.flatParametric().getOrNull(index) ?: return
         setParamBand(index, default)
@@ -227,6 +270,7 @@ class DspController(
     fun setProcessing(on: Boolean) {
         processingEnabled = on
         engine.setBypass(!on)
+        pushNight()
         save()
     }
 
@@ -276,6 +320,7 @@ class DspController(
         engine.setMasterGainDb(masterDb)
         engine.setEqEnabled(eqEnabled)
         engine.setBypass(!processingEnabled)
+        pushNight()
         for (i in 0 until MAX_CH) {
             engine.setChannelGainDb(i, channelDb[i])
             engine.setChannelMute(i, channelMute[i])
@@ -287,6 +332,8 @@ class DspController(
         masterDb = prefs.getFloat("master", 0f)
         eqEnabled = prefs.getBoolean("eq", true)
         processingEnabled = prefs.getBoolean("processing", true)
+        nightLevel = prefs.getInt("night", 0).coerceIn(0, 2)
+        paramProfile = prefs.getInt("param_profile", 0).coerceIn(0, PARAM_PROFILES - 1)
         val savedMode = prefs.getInt("eq_mode", EqMode.GRAPHIC.id)
         eqMode = EqMode.entries.firstOrNull { it.id == savedMode } ?: EqMode.GRAPHIC
         val savedPreset = prefs.getString("preset", "Flat") ?: ""
@@ -306,15 +353,24 @@ class DspController(
                 enabled = prefs.getBoolean("b${i}_e", default.enabled),
             )
         }
+        loadParamProfile(paramProfile)
+    }
+
+    /** Key in the settings file. Profile 0 keeps the names older versions used ("p3_f"). */
+    private fun paramKey(profile: Int, band: Int, field: String): String =
+        if (profile == 0) "p${band}_$field" else "p${profile}_${band}_$field"
+
+    private fun loadParamProfile(profile: Int) {
+        val flat = EqDefaults.flatParametric()
         for (i in 0 until MAX_BANDS) {
-            val default = paramBands[i]
-            val typeId = prefs.getInt("p${i}_t", default.type.id)
+            val default = flat[i]
+            val typeId = prefs.getInt(paramKey(profile, i, "t"), default.type.id)
             paramBands[i] = EqBand(
-                freqHz = prefs.getFloat("p${i}_f", default.freqHz).coerceIn(PARAM_FREQ_MIN, PARAM_FREQ_MAX),
-                gainDb = prefs.getFloat("p${i}_g", default.gainDb).coerceIn(PARAM_GAIN_MIN, PARAM_GAIN_MAX),
-                q = prefs.getFloat("p${i}_q", default.q).coerceIn(PARAM_Q_MIN, PARAM_Q_MAX),
+                freqHz = prefs.getFloat(paramKey(profile, i, "f"), default.freqHz).coerceIn(PARAM_FREQ_MIN, PARAM_FREQ_MAX),
+                gainDb = prefs.getFloat(paramKey(profile, i, "g"), default.gainDb).coerceIn(PARAM_GAIN_MIN, PARAM_GAIN_MAX),
+                q = prefs.getFloat(paramKey(profile, i, "q"), default.q).coerceIn(PARAM_Q_MIN, PARAM_Q_MAX),
                 type = EqBandType.entries.firstOrNull { it.id == typeId } ?: EqBandType.PEAK,
-                enabled = prefs.getBoolean("p${i}_e", default.enabled),
+                enabled = prefs.getBoolean(paramKey(profile, i, "e"), default.enabled),
             )
         }
     }
@@ -324,6 +380,8 @@ class DspController(
         e.putFloat("master", masterDb)
         e.putBoolean("eq", eqEnabled)
         e.putInt("eq_mode", eqMode.id)
+        e.putInt("night", nightLevel)
+        e.putInt("param_profile", paramProfile)
         e.putBoolean("processing", processingEnabled)
         e.putString("preset", presetName ?: "")
         for (i in 0 until MAX_CH) {
@@ -352,11 +410,11 @@ class DspController(
     private fun putParametric(e: SharedPreferences.Editor) {
         for (i in 0 until MAX_BANDS) {
             val b = paramBands[i]
-            e.putFloat("p${i}_f", b.freqHz)
-            e.putFloat("p${i}_g", b.gainDb)
-            e.putFloat("p${i}_q", b.q)
-            e.putInt("p${i}_t", b.type.id)
-            e.putBoolean("p${i}_e", b.enabled)
+            e.putFloat(paramKey(paramProfile, i, "f"), b.freqHz)
+            e.putFloat(paramKey(paramProfile, i, "g"), b.gainDb)
+            e.putFloat(paramKey(paramProfile, i, "q"), b.q)
+            e.putInt(paramKey(paramProfile, i, "t"), b.type.id)
+            e.putBoolean(paramKey(paramProfile, i, "e"), b.enabled)
         }
     }
 
@@ -375,5 +433,6 @@ class DspController(
         const val PARAM_FREQ_MAX = 20000f
         const val PARAM_Q_MIN = 0.1f
         const val PARAM_Q_MAX = 18f
+        const val PARAM_PROFILES = 3
     }
 }

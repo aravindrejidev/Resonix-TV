@@ -59,10 +59,11 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 
 enum class PanelTab(val title: String) {
-    TRACKS("Audio & Subtitles"),
+    TRACKS("Tracks"),
     CHANNELS("Channels"),
     EQUALIZER("Equalizer"),
     PRESETS("Presets"),
+    PICTURE("Picture"),
     INFO("Info"),
 }
 
@@ -208,6 +209,8 @@ class AudioPanelController(
     private val channelCount: () -> Int,
     private val trackItems: () -> List<TrackItem>,
     private val onChoose: (TrackItem.Choice) -> Unit,
+    private val pictureMode: () -> Int,
+    private val onPictureMode: (Int) -> Unit,
 ) {
     fun displayedChannels(): Int = channelCount().let { if (it <= 0) 2 else it }.coerceAtMost(8)
 
@@ -228,7 +231,7 @@ class AudioPanelController(
             return true
         }
         when (state.tab) {
-            PanelTab.TRACKS, PanelTab.PRESETS -> listKey(key)
+            PanelTab.TRACKS, PanelTab.PRESETS, PanelTab.PICTURE -> listKey(key)
             PanelTab.CHANNELS -> faderKey(key, repeat)
             PanelTab.EQUALIZER -> eqKey(key, repeat)
             PanelTab.INFO -> Unit // read-only, the cursor never enters it
@@ -244,17 +247,23 @@ class AudioPanelController(
 
     private fun enterContent() {
         state.inContent = true
-        state.cursor = if (state.tab == PanelTab.TRACKS) {
-            val items = trackItems()
-            val active = items.indexOfFirst { it is TrackItem.Choice && it.selected }
-            if (active >= 0) active else items.indexOfFirst { it is TrackItem.Choice }.coerceAtLeast(0)
-        } else {
-            0
+        state.cursor = when (state.tab) {
+            PanelTab.TRACKS -> {
+                val items = trackItems()
+                val active = items.indexOfFirst { it is TrackItem.Choice && it.selected }
+                if (active >= 0) active else items.indexOfFirst { it is TrackItem.Choice }.coerceAtLeast(0)
+            }
+            PanelTab.PICTURE -> pictureMode().coerceIn(0, 2)
+            else -> 0
         }
     }
 
-    private fun listCount(): Int =
-        if (state.tab == PanelTab.TRACKS) trackItems().size else DspPresets.ALL.size + 1
+    /** Presets tab: night mode, every preset, then "Reset everything". Picture tab: fit, zoom, stretch. */
+    private fun listCount(): Int = when (state.tab) {
+        PanelTab.TRACKS -> trackItems().size
+        PanelTab.PICTURE -> 3
+        else -> DspPresets.ALL.size + 2
+    }
 
     private fun selectable(index: Int): Boolean =
         if (state.tab == PanelTab.TRACKS) trackItems().getOrNull(index) is TrackItem.Choice
@@ -276,12 +285,20 @@ class AudioPanelController(
     }
 
     private fun activate() {
-        if (state.tab == PanelTab.TRACKS) {
-            val item = trackItems().getOrNull(state.cursor)
-            if (item is TrackItem.Choice) onChoose(item)
-        } else {
-            val preset = DspPresets.ALL.getOrNull(state.cursor)
-            if (preset != null) dsp.applyPreset(preset) else dsp.resetAll()
+        when (state.tab) {
+            PanelTab.TRACKS -> {
+                val item = trackItems().getOrNull(state.cursor)
+                if (item is TrackItem.Choice) onChoose(item)
+            }
+            PanelTab.PICTURE -> onPictureMode(state.cursor)
+            else -> {
+                if (state.cursor == 0) {
+                    dsp.cycleNightLevel()
+                } else {
+                    val preset = DspPresets.ALL.getOrNull(state.cursor - 1)
+                    if (preset != null) dsp.applyPreset(preset) else dsp.resetAll()
+                }
+            }
         }
     }
 
@@ -349,6 +366,7 @@ fun AudioPanel(
     formatInfo: String,
     meters: List<Float>,
     sampleRate: Int,
+    pictureMode: Int,
     stats: PlaybackStats,
     videoFormat: Format?,
     audioFormat: Format?,
@@ -385,6 +403,7 @@ fun AudioPanel(
                 PanelTab.CHANNELS -> ChannelsContent(state, dsp, controller.displayedChannels(), channelCount, meters)
                 PanelTab.EQUALIZER -> EqualizerContent(state, dsp, sampleRate)
                 PanelTab.PRESETS -> PresetsContent(state, dsp)
+                PanelTab.PICTURE -> PictureContent(state, pictureMode)
                 PanelTab.INFO -> InfoContent(stats, videoFormat, audioFormat, bufferAheadMs)
             }
         }
@@ -606,23 +625,61 @@ private fun InfoColumn(title: String, rows: List<Pair<String, String>>, modifier
 
 @Composable
 private fun PresetsContent(state: PanelState, dsp: DspController) {
-    Column(
+    val listState = rememberLazyListState()
+    LaunchedEffect(state.cursor, state.inContent) {
+        if (state.inContent) listState.animateScrollToItem((state.cursor - 2).coerceAtLeast(0))
+    }
+    LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        DspPresets.ALL.forEachIndexed { index, preset ->
+        item {
+            NeoRow(
+                title = "Night mode",
+                subtitle = "Evens out loud and quiet parts, so dialogue stays clear at low volume. OK changes the level",
+                focused = state.inContent && state.cursor == 0,
+                marker = dsp.nightLabel,
+            )
+        }
+        itemsIndexed(DspPresets.ALL) { index, preset ->
             val gains = preset.channelGainsDb.entries.joinToString("   ") { "${it.key.label} ${formatDb(it.value)} dB" }
             NeoRow(
                 title = preset.name,
                 subtitle = gains.ifEmpty { "No channel changes" },
-                focused = state.inContent && state.cursor == index,
+                focused = state.inContent && state.cursor == index + 1,
                 marker = if (dsp.presetName == preset.name) "ACTIVE" else null,
             )
         }
-        NeoRow(
-            title = "Reset everything",
-            subtitle = "Flat EQ, 0 dB on every channel, nothing muted",
-            focused = state.inContent && state.cursor == DspPresets.ALL.size,
-        )
+        item {
+            NeoRow(
+                title = "Reset everything",
+                subtitle = "Flat EQ, 0 dB on every channel, nothing muted",
+                focused = state.inContent && state.cursor == DspPresets.ALL.size + 1,
+            )
+        }
+    }
+}
+
+/** How the picture fills the screen. Saved, so the next movie looks the same. */
+@Composable
+private fun PictureContent(state: PanelState, pictureMode: Int) {
+    val options = listOf(
+        "Fit" to "The whole picture, with black bars where the shapes differ",
+        "Zoom" to "Fills the screen; the edges of the picture are cut off",
+        "Stretch" to "Fills the screen; the picture is pulled out of shape",
+    )
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEachIndexed { index, option ->
+            NeoRow(
+                title = option.first,
+                subtitle = option.second,
+                focused = state.inContent && state.cursor == index,
+                marker = if (pictureMode == index) "ACTIVE" else null,
+            )
+        }
     }
 }

@@ -106,7 +106,9 @@ No accounts. No ads. No telemetry. Your files stay on your TV; the network is us
 - **Graphic EQ** — 10 bands from 31.5 Hz to 16 kHz, ±12 dB. Fast and simple.
 - **Parametric EQ** — 10 bands, each with a filter type (peak, low shelf, high shelf, high-pass, low-pass), frequency (20 Hz – 20 kHz), gain (±15 dB) and Q factor (0.1 – 18). A live response curve shows exactly what you are building.
 - **One EQ at a time** — build and save your parametric EQ in the main menu, then switch between it and the graphic EQ while the movie plays.
+- **Three parametric profiles** — keep one EQ for the TV speakers, one for the soundbar, one for headphones, and switch between them.
 - **Saved automatically** — every change is stored on the TV, so your sound is there next time.
+- **Night mode** — evens out loud and quiet parts (Off / Light / Strong), so dialogue stays clear at low volume and explosions stop waking the house.
 - **Presets** — Flat, Dialogue boost and Bass boost, plus a one-press reset.
 - **Safe by design** — a soft limiter catches peaks, EQ changes glide in without clicks, and a flat chain is bit-exact (nothing is coloured).
 
@@ -120,7 +122,10 @@ No accounts. No ads. No telemetry. Your files stay on your TV; the network is us
 
 #### Playback
 - **FFmpeg audio decoders** — AC3, E-AC3, DTS, DTS-HD, TrueHD, MLP, FLAC, ALAC, Opus, Vorbis, MP3 and AAC. Android's own decoders are the fallback.
-- **Audio & subtitle tracks** — switch language or subtitle on the fly, without leaving the movie.
+- **Audio & subtitle tracks** — switch language or subtitle on the fly, without leaving the movie. The next movie starts with the language you picked last.
+- **Picture modes** — Fit, Zoom or Stretch, saved for next time.
+- **Subtitle looks** — size, a clear outline (white or yellow) and height, so they fit your TV.
+- **Next episode** — optional: when a movie ends, the next file in the same folder plays by itself.
 - **Subtitle files** — `.srt`, `.vtt`, `.ass` and `.ssa` files next to the movie are found and (optionally) switched on automatically. The size is adjustable in Settings (75 % – 200 %).
 - **Resume** — continue where you stopped, with preview pictures in *Recently Watched*. The movie pauses by itself when you press HOME or the TV goes to sleep, and returns to the list when it ends.
 - **Match frame rate (24p)** — optional. The TV switches to the movie's frame rate, so slow pans stop juddering. The screen blinks once while it changes.
@@ -377,17 +382,18 @@ pie showData title What ResonixTV is made of (non-blank lines of code)
 ### 🗺️ Roadmap
 
 **Done**
-- [x] Channel mixer, graphic EQ and parametric EQ
+- [x] Channel mixer, graphic EQ and parametric EQ (with three saved profiles)
 - [x] FFmpeg decoders for DTS, TrueHD and E-AC3
 - [x] One APK per CPU type, with an in-app updater that picks the right one
-- [x] Adjustable subtitle size
+- [x] Subtitle size, style and height
 - [x] Match frame rate (24p), playback info tab, automatic recovery and an error log
+- [x] Night mode, picture modes, remembered audio / subtitle language, next-episode autoplay
 
 **Ideas**
 - [ ] Audio delay, to fix lip-sync on soundbars and receivers
-- [ ] Picture modes: Fit, Zoom and Stretch
-- [ ] Play the next episode from the same folder automatically
-- [ ] Several named parametric EQ presets
+- [ ] Stereo downmix that keeps dialogue clear on TVs with two speakers
+- [ ] Play from network shares (SMB / DLNA)
+- [ ] Sorting and search in the file browser
 
 Have an idea? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issues) and tell us.
 

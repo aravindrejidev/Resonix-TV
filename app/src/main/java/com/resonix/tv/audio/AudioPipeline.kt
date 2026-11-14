@@ -7,6 +7,9 @@ object AudioPipeline {
     val engine: DspEngine by lazy { DspEngine() }
     val processor: DspAudioProcessor by lazy { DspAudioProcessor(engine) }
 
+    /** Night mode (compressor). Runs in front of [processor]. */
+    val nightMode: NightModeProcessor by lazy { NightModeProcessor() }
+
     @Volatile
     private var controllerInstance: DspController? = null
 

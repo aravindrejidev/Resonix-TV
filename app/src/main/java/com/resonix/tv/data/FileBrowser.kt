@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Environment
 import android.os.storage.StorageManager
 import androidx.media3.common.MimeTypes
+import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.player.SubtitleSource
 import java.io.File
 
@@ -93,6 +94,25 @@ object FileBrowser {
         }
         result.sortWith(compareBy<BrowserEntry>({ !it.isDir }, { it.file.name.lowercase() }))
         return result
+    }
+
+    /**
+     * The file that comes after [current] in its folder (sorted by name, like the browser shows
+     * it), ready to play, or null when it was the last one. For "play the next episode".
+     */
+    fun findNext(current: File): PlayRequest? {
+        val dir = current.parentFile ?: return null
+        val files = list(dir)?.filter { !it.isDir }?.map { it.file } ?: return null
+        val index = files.indexOfFirst { it.absolutePath == current.absolutePath }
+        if (index < 0) return null
+        val next = files.getOrNull(index + 1) ?: return null
+        return PlayRequest(Uri.fromFile(next), next.nameWithoutExtension, findSubtitles(next))
+    }
+
+    /** [findNext] for a stored Uri (only file:// movies have neighbours). */
+    fun findNextFor(uri: Uri): PlayRequest? {
+        val path = if (uri.scheme == "file") uri.path else null
+        return if (path != null) findNext(File(path)) else null
     }
 
     /** Same as [findSubtitles] for a stored Uri (only file:// videos have side-car files). */

@@ -23,6 +23,31 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     /** Ask the TV to switch to the movie's frame rate (24p, 25p ...). The screen blinks once. */
     var matchFrameRate by mutableStateOf(prefs.getBoolean("match_fps", false))
         private set
+    /** 0 = the TV's own caption style, 1 = white with a black outline, 2 = yellow with a black outline. */
+    var subtitleStyle by mutableIntStateOf(prefs.getInt("subtitle_style", 0))
+        private set
+
+    /** 0 = low, 1 = normal, 2 = high (how far subtitles sit above the bottom edge). */
+    var subtitleHeight by mutableIntStateOf(prefs.getInt("subtitle_height", 1))
+        private set
+
+    /** 0 = fit (black bars), 1 = zoom (crop), 2 = stretch. Changed in the Picture tab while watching. */
+    var pictureMode by mutableIntStateOf(prefs.getInt("picture_mode", 0))
+        private set
+
+    /** Start the next movie with the audio and subtitle language chosen last time. */
+    var rememberTracks by mutableStateOf(prefs.getBoolean("remember_tracks", true))
+        private set
+    var preferredAudioLanguage by mutableStateOf(prefs.getString("pref_audio", "") ?: "")
+        private set
+
+    /** "" = no choice yet, "off" = subtitles off, otherwise a language code. */
+    var preferredSubtitleLanguage by mutableStateOf(prefs.getString("pref_sub", "") ?: "")
+        private set
+
+    /** When a movie ends, play the next file of the same folder. */
+    var autoplayNext by mutableStateOf(prefs.getBoolean("autoplay_next", false))
+        private set
     var resumePlayback by mutableStateOf(prefs.getBoolean("resume", true))
         private set
     var autoSubtitles by mutableStateOf(prefs.getBoolean("auto_subtitles", true))
@@ -50,6 +75,47 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     fun cycleUiScale() {
         uiScalePercent = next(UI_SCALES, uiScalePercent)
         prefs.edit().putInt(KEY_UI_SCALE, uiScalePercent).apply()
+    }
+
+    val subtitleStyleName: String
+        get() = SUBTITLE_STYLES.getOrElse(subtitleStyle) { SUBTITLE_STYLES[0] }
+
+    val subtitleHeightName: String
+        get() = SUBTITLE_HEIGHTS.getOrElse(subtitleHeight) { SUBTITLE_HEIGHTS[1] }
+
+    fun cycleSubtitleStyle() {
+        subtitleStyle = (subtitleStyle + 1) % SUBTITLE_STYLES.size
+        prefs.edit().putInt("subtitle_style", subtitleStyle).apply()
+    }
+
+    fun cycleSubtitleHeight() {
+        subtitleHeight = (subtitleHeight + 1) % SUBTITLE_HEIGHTS.size
+        prefs.edit().putInt("subtitle_height", subtitleHeight).apply()
+    }
+
+    fun selectPictureMode(mode: Int) {
+        pictureMode = mode.coerceIn(0, 2)
+        prefs.edit().putInt("picture_mode", pictureMode).apply()
+    }
+
+    fun toggleRememberTracks() {
+        rememberTracks = !rememberTracks
+        prefs.edit().putBoolean("remember_tracks", rememberTracks).apply()
+    }
+
+    fun rememberAudioLanguage(language: String) {
+        preferredAudioLanguage = language
+        prefs.edit().putString("pref_audio", language).apply()
+    }
+
+    fun rememberSubtitleLanguage(language: String) {
+        preferredSubtitleLanguage = language
+        prefs.edit().putString("pref_sub", language).apply()
+    }
+
+    fun toggleAutoplayNext() {
+        autoplayNext = !autoplayNext
+        prefs.edit().putBoolean("autoplay_next", autoplayNext).apply()
     }
 
     fun toggleMatchFrameRate() {
@@ -96,6 +162,12 @@ class SettingsStore private constructor(private val prefs: SharedPreferences) {
     companion object {
         private const val KEY_UI_SCALE = "ui_scale_v3"
         const val DEFAULT_UI_SCALE = 75
+
+        val SUBTITLE_STYLES: List<String> = listOf("TV default", "White outline", "Yellow outline")
+        val SUBTITLE_HEIGHTS: List<String> = listOf("Low", "Normal", "High")
+
+        /** Space under the subtitles as a fraction of the picture height, for the three heights above. */
+        val SUBTITLE_BOTTOM_PADDING: List<Float> = listOf(0.04f, 0.08f, 0.14f)
 
         /** Subtitle size choices in percent of the normal size. */
         val SUBTITLE_SIZES: List<Int> = listOf(75, 100, 125, 150, 175, 200)

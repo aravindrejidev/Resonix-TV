@@ -66,15 +66,16 @@ private const val CHOOSER_ROWS = 3 // the last one is the EQ on / off switch
 
 // rows of the parametric editor
 private const val ROW_IN_USE = 0
-private const val ROW_BAND = 1
-private const val ROW_TYPE = 2
-private const val ROW_FREQ = 3
-private const val ROW_GAIN = 4
-private const val ROW_Q = 5
-private const val ROW_ENABLED = 6
-private const val ROW_RESET_BAND = 7
-private const val ROW_RESET_ALL = 8
-private const val PARAM_ROWS = 9
+private const val ROW_PROFILE = 1
+private const val ROW_BAND = 2
+private const val ROW_TYPE = 3
+private const val ROW_FREQ = 4
+private const val ROW_GAIN = 5
+private const val ROW_Q = 6
+private const val ROW_ENABLED = 7
+private const val ROW_RESET_BAND = 8
+private const val ROW_RESET_ALL = 9
+private const val PARAM_ROWS = 10
 
 /** Which page is open and where the D-pad cursor is on it. */
 @Stable
@@ -179,6 +180,7 @@ class EqPageController(
         val coarse = repeat > 5
         when (state.paramRow) {
             ROW_IN_USE -> dsp.setInUse(EqMode.PARAMETRIC, direction > 0)
+            ROW_PROFILE -> if (repeat == 0) dsp.selectParamProfile(dsp.paramProfile + direction)
             ROW_BAND -> state.paramBand = (band + direction).coerceIn(0, dsp.paramBands.size - 1)
             ROW_TYPE -> if (repeat == 0) dsp.cycleParamType(band, direction)
             ROW_FREQ -> dsp.adjustParamFreq(band, direction, coarse)
@@ -259,7 +261,7 @@ private fun ChooserPage(state: EqUiState, dsp: DspController, active: Boolean, s
         )
         NeoRow(
             title = "Parametric EQ",
-            subtitle = "10 filters: type, frequency, gain and Q factor. Saved automatically.",
+            subtitle = "10 filters: type, frequency, gain and Q factor. Three saved profiles (TV speakers, soundbar ...).",
             focused = active && state.chooserCursor == CHOOSER_PARAMETRIC,
             marker = if (dsp.isInUse(EqMode.PARAMETRIC)) "IN USE" else null,
             icon = NeoIcon.EQ,
@@ -427,6 +429,10 @@ private fun ParamRows(
             val focused = active && state.paramRow == row
             when (row) {
                 ROW_IN_USE -> NeoParamRow("Use this EQ", focused, toggle = inUse)
+                ROW_PROFILE -> NeoParamRow(
+                    "EQ profile", focused,
+                    valueText = "${dsp.paramProfile + 1} of ${DspController.PARAM_PROFILES}", adjustable = true,
+                )
                 ROW_BAND -> NeoParamRow(
                     "Band", focused,
                     valueText = "${bandIndex + 1} of ${dsp.paramBands.size}", adjustable = true,
