@@ -28,6 +28,9 @@ class PlaybackStats : AnalyticsListener {
     /** What the frame-rate matching did for this movie (set by the player screen). */
     var frameRateNote by mutableStateOf("Off")
 
+    /** Where the movie comes from: local file, network share, web link (set by the player screen). */
+    var sourceNote by mutableStateOf("Local file")
+
     override fun onVideoDecoderInitialized(
         eventTime: AnalyticsListener.EventTime,
         decoderName: String,

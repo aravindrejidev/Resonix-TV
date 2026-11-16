@@ -40,11 +40,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.resonix.tv.data.BrowserEntry
 import com.resonix.tv.data.FileBrowser
+import com.resonix.tv.data.FileSource
+import com.resonix.tv.data.LocalFileSource
 import com.resonix.tv.data.MediaLibrary
+import com.resonix.tv.data.SmbFileSource
 import com.resonix.tv.data.StorageRoot
 import com.resonix.tv.data.StorageRoots
 import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
+import com.resonix.tv.net.SmbErrors
+import com.resonix.tv.net.SmbProblem
+import com.resonix.tv.net.SmbShareStore
 import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.ui.components.NeoChip
 import com.resonix.tv.ui.components.NeoIcon
@@ -57,6 +63,40 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+/** What the browser opens on: this TV's storage, or a folder of a saved network share. */
+sealed interface BrowseStart {
+    /** [dir] null = the list of storage devices. */
+    data class Local(val dir: File?) : BrowseStart
+
+    /** [shareName] is the share to open on the saved server [shareId]; [path] "" = its top folder. */
+    data class Smb(val shareId: String, val shareName: String, val path: String = "") : BrowseStart
+}
+
+/** The source to read from, or the reason it can not be opened; [title] is the heading of a network share. */
+private class OpenedSource(val source: FileSource?, val error: String?, val title: String)
+
+private fun openSource(context: Context, start: BrowseStart): OpenedSource = when (start) {
+    is BrowseStart.Local -> OpenedSource(LocalFileSource, null, "")
+    is BrowseStart.Smb -> {
+        val store = SmbShareStore.get(context)
+        val share = store.find(start.shareId)
+        if (share == null) {
+            OpenedSource(null, SmbProblem.NOT_SAVED.text, "Network")
+        } else {
+            try {
+                OpenedSource(SmbFileSource(store.credentialsOf(share, start.shareName)), null, share.displayName + " / " + start.shareName)
+            } catch (e: Exception) {
+                OpenedSource(null, SmbErrors.describe(e), share.displayName)
+            }
+        }
+    }
+}
+
+/** Last folder shown per network share: coming back from the player returns to the same folder. */
+private val lastSmbFolder = HashMap<String, String>()
+
+private fun smbKey(start: BrowseStart.Smb): String = start.shareId + "|" + start.shareName
 
 private sealed interface BrowserRow {
     data object Grant : BrowserRow
@@ -87,27 +127,40 @@ private fun openAllFilesSettings(context: Context) {
 }
 
 /**
- * Built-in file browser (many TVs have no system file picker): storage devices, folders, media files.
+ * Built-in file browser (many TVs have no system file picker): storage devices or a network share,
+ * folders, media files. The same screen serves both: it only talks to a [FileSource].
  *   UP / DOWN move (hold = faster)    OK or RIGHT open / play    LEFT or BACK one level up
  */
 @Composable
-fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
+fun BrowserScreen(start: BrowseStart, onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("resonix_ui", Context.MODE_PRIVATE) }
     val currentOnPlay by rememberUpdatedState(onPlay)
     val currentOnExit by rememberUpdatedState(onExit)
 
+    val network = start is BrowseStart.Smb
+    val opened = remember(start) { openSource(context, start) }
+    val source = opened.source
+
     var hasPermission by remember { mutableStateOf(MediaLibrary.hasPermission(context)) }
     var allFiles by remember { mutableStateOf(allFilesAccess()) }
     var roots by remember { mutableStateOf<List<StorageRoot>>(emptyList()) }
+    // Folder shown now. Local: a full path, null = the list of storage devices. Network: the path
+    // inside the share, "" = the top of the share.
     var dir by remember {
-        mutableStateOf(
-            startDir?.takeIf { it.isDirectory }
-                ?: prefs.getString("last_dir", null)?.let { File(it) }?.takeIf { it.isDirectory },
+        mutableStateOf<String?>(
+            when (start) {
+                is BrowseStart.Local ->
+                    start.dir?.takeIf { it.isDirectory }?.path
+                        ?: prefs.getString("last_dir", null)?.takeIf { File(it).isDirectory }
+                is BrowseStart.Smb -> lastSmbFolder[smbKey(start)] ?: start.path
+            },
         )
     }
     var entries by remember { mutableStateOf<List<BrowserEntry>?>(emptyList()) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    var reloadTick by remember { mutableIntStateOf(0) }
     var loading by remember { mutableStateOf(false) }
     var cursor by remember { mutableIntStateOf(0) }
     val cursorMemory = remember { HashMap<String, Int>() }
@@ -120,6 +173,7 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
 
     // The permission pages are separate Android screens: notice when the user comes back.
     LaunchedEffect(Unit) {
+        if (network) return@LaunchedEffect
         while (true) {
             delay(1500)
             hasPermission = MediaLibrary.hasPermission(context)
@@ -127,19 +181,25 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
         }
     }
 
-    LaunchedEffect(dir, hasPermission, allFiles) {
-        roots = withContext(Dispatchers.IO) { StorageRoots.list(context) }
+    LaunchedEffect(dir, hasPermission, allFiles, reloadTick) {
+        if (!network) roots = withContext(Dispatchers.IO) { StorageRoots.list(context) }
         val folder = dir
-        if (folder == null) {
+        if (folder == null || source == null) {
             entries = emptyList()
         } else {
             loading = true
-            entries = withContext(Dispatchers.IO) { FileBrowser.list(folder) }
+            listError = null
+            // A slow server: do not leave the old folder's lines on screen under the new heading.
+            if (network) entries = emptyList()
+            val outcome = withContext(Dispatchers.IO) { runCatching { FileBrowser.list(source, folder) } }
+            entries = outcome.getOrNull()
+            listError = outcome.exceptionOrNull()?.let { SmbErrors.describe(it) }
             loading = false
-            prefs.edit().putString("last_dir", folder.path).apply()
+            if (start is BrowseStart.Smb) lastSmbFolder[smbKey(start)] = folder
+            if (!network) prefs.edit().putString("last_dir", folder).apply()
         }
     }
-    LaunchedEffect(dir) { cursor = cursorMemory[dir?.path ?: ""] ?: 0 }
+    LaunchedEffect(dir) { cursor = cursorMemory[dir ?: ""] ?: 0 }
 
     val rows: List<BrowserRow> = remember(dir, roots, entries, hasPermission, allFiles) {
         buildList<BrowserRow> {
@@ -153,10 +213,10 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
         }
     }
     val latestRows by rememberUpdatedState(rows)
-    LaunchedEffect(rows.size) { cursor = cursor.coerceIn(0, (rows.size - 1).coerceAtLeast(0)) }
+    LaunchedEffect(rows.size) { if (!loading) cursor = cursor.coerceIn(0, (rows.size - 1).coerceAtLeast(0)) }
 
-    fun enter(target: File?) {
-        cursorMemory[dir?.path ?: ""] = cursor
+    fun enter(target: String?) {
+        cursorMemory[dir ?: ""] = cursor
         dir = target
     }
 
@@ -166,16 +226,23 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
             currentOnExit()
             return
         }
-        val parent = folder.parentFile
-        val underRoot = roots.any { folder.path.startsWith(it.path.path) }
-        val atRoot = parent == null || !underRoot || roots.any { it.path == folder }
-        enter(if (atRoot) null else parent)
+        if (network) {
+            // Top of the share: back to the list of network shares.
+            if (folder.isEmpty()) currentOnExit() else enter(source?.parent(folder) ?: "")
+            return
+        }
+        val parent = File(folder).parentFile
+        val underRoot = roots.any { folder.startsWith(it.path.path) }
+        val atRoot = parent == null || !underRoot || roots.any { it.path.path == folder }
+        enter(if (atRoot) null else parent?.path)
     }
 
-    fun play(file: File) {
+    fun play(entry: BrowserEntry) {
+        val src = source ?: return
+        val folder = dir ?: return
         scope.launch {
-            val subtitles = withContext(Dispatchers.IO) { FileBrowser.findSubtitles(file) }
-            currentOnPlay(PlayRequest(Uri.fromFile(file), file.nameWithoutExtension, subtitles))
+            val subtitles = withContext(Dispatchers.IO) { FileBrowser.findSubtitles(src, folder, entry.name) }
+            currentOnPlay(PlayRequest(src.uriOf(folder, entry.name), entry.name.substringBeforeLast('.'), subtitles))
         }
     }
 
@@ -183,8 +250,8 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
         when (row) {
             BrowserRow.Grant -> runCatching { permissionLauncher.launch(MediaLibrary.permissions()) }
             BrowserRow.AllFiles -> openAllFilesSettings(context)
-            is BrowserRow.Volume -> enter(row.root.path)
-            is BrowserRow.Item -> if (row.entry.isDir) enter(row.entry.file) else play(row.entry.file)
+            is BrowserRow.Volume -> enter(row.root.path.path)
+            is BrowserRow.Item -> if (row.entry.isDir) enter(row.entry.path) else play(row.entry)
         }
     }
 
@@ -207,7 +274,8 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
                     true
                 }
                 RemoteKey.RIGHT, RemoteKey.SELECT -> {
-                    latestRows.getOrNull(cursor)?.let { activate(it) }
+                    val row = latestRows.getOrNull(cursor)
+                    if (row != null) activate(row) else if (network && !loading) reloadTick++
                     true
                 }
                 else -> false
@@ -224,9 +292,15 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
 
     val folder = dir
     val listing = entries
-    val heading = if (folder == null) "Storage devices" else StorageRoots.prettyPath(roots, folder)
+    val heading = when {
+        network -> if (folder.isNullOrEmpty()) opened.title else opened.title + " / " + folder.replace("/", " / ")
+        folder == null -> "Storage devices"
+        else -> StorageRoots.prettyPath(roots, File(folder))
+    }
     val status = when {
+        opened.error != null -> opened.error
         loading -> "Loading..."
+        network && listError != null -> listError + "\nPress OK to try again."
         folder == null && roots.isEmpty() -> "No storage found."
         folder == null -> "Choose a storage device. USB drives appear here when plugged in."
         listing == null -> "This folder cannot be read. Allow access to files first."
@@ -239,11 +313,11 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
         horizontalArrangement = Arrangement.spacedBy(40.dp),
     ) {
         Column(modifier = Modifier.width(300.dp).fillMaxHeight()) {
-            NeoText("Browse files", size = 36.sp, color = NeoColors.Cyan, weight = FontWeight.Bold)
+            NeoText(if (network) "Network files" else "Browse files", size = 36.sp, color = NeoColors.Cyan, weight = FontWeight.Bold)
             Spacer(Modifier.height(10.dp))
             NeoText(heading, size = 16.sp, color = NeoColors.TextPrimary, maxLines = 4)
             Spacer(Modifier.height(14.dp))
-            NeoText(status, size = 14.sp, color = NeoColors.TextDim, maxLines = 4)
+            NeoText(status ?: "", size = 14.sp, color = if (network && listError != null) NeoColors.Warning else NeoColors.TextDim, maxLines = 8)
             Spacer(Modifier.weight(1f))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 NeoChip("UP / DOWN  choose")
@@ -269,7 +343,7 @@ fun BrowserScreen(startDir: File?, onPlay: (PlayRequest) -> Unit, onExit: () -> 
                     )
                     is BrowserRow.Volume -> NeoRow(row.root.label, row.root.path.path, focused, icon = NeoIcon.DRIVE)
                     is BrowserRow.Item -> NeoRow(
-                        title = row.entry.file.name,
+                        title = row.entry.name,
                         subtitle = if (row.entry.isDir) "Folder" else formatSize(row.entry.sizeBytes),
                         focused = focused,
                         marker = if (row.entry.isDir) "OPEN" else null,

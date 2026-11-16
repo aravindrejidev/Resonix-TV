@@ -599,12 +599,13 @@ private fun InfoContent(stats: PlaybackStats, video: Format?, audio: Format?, bu
             ),
         )
         InfoColumn(
-            title = "SCREEN",
+            title = "SCREEN AND SOURCE",
             modifier = Modifier.weight(1f),
             rows = listOf(
                 "Mode" to screenMode,
                 "Frame rate" to stats.frameRateNote,
                 "Buffer ahead" to "${(bufferAheadMs / 1000L).coerceAtLeast(0L)} s",
+                "Source" to stats.sourceNote,
             ),
         )
     }

@@ -99,6 +99,41 @@ fun NeoStorageCard(
     }
 }
 
+/** Home card that opens the network shares (NAS, PC). Same look as the drive cards, without a usage bar. */
+@Composable
+fun NeoNetworkCard(
+    title: String,
+    subtitle: String,
+    detail: String,
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+    accent: Color = NeoColors.Blue,
+) {
+    Row(
+        modifier = modifier
+            .neuRaised(22.dp, 7.dp)
+            .neuFocusRing(focused, 22.dp, accent)
+            .padding(horizontal = 22.dp, vertical = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NeoIconTile(NeoIcon.NETWORK, accent, tileSize = 60.dp)
+        Spacer(Modifier.width(18.dp))
+        Column(Modifier.weight(1f)) {
+            NeoText(
+                text = title,
+                size = 21.sp,
+                color = if (focused) Color.White else NeoColors.TextPrimary,
+                weight = FontWeight.SemiBold,
+            )
+            NeoText(subtitle, size = 14.sp, color = NeoColors.TextSecondary)
+            Spacer(Modifier.height(10.dp))
+            NeoText(detail, size = 13.sp, color = NeoColors.TextSecondary)
+        }
+        Spacer(Modifier.width(10.dp))
+        NeoIconView(NeoIcon.CHEVRON, tint = NeoColors.TextSecondary, iconSize = 22.dp)
+    }
+}
+
 /** Movie preview with play button, duration and "how far you watched" bar. */
 @Composable
 fun NeoHistoryCard(

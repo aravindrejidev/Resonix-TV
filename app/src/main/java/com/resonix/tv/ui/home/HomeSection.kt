@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -40,11 +39,13 @@ import com.resonix.tv.data.StorageRoots
 import com.resonix.tv.data.listWithUsage
 import com.resonix.tv.data.rememberThumbnail
 import com.resonix.tv.input.RemoteKey
+import com.resonix.tv.net.SmbShareStore
 import com.resonix.tv.player.PlayRequest
 import com.resonix.tv.ui.components.NeoHistoryCard
 import com.resonix.tv.ui.components.NeoIcon
 import com.resonix.tv.ui.components.NeoIconView
 import com.resonix.tv.ui.components.NeoIconTile
+import com.resonix.tv.ui.components.NeoNetworkCard
 import com.resonix.tv.ui.components.NeoSectionHeader
 import com.resonix.tv.ui.components.NeoStorageCard
 import com.resonix.tv.ui.components.NeoText
@@ -111,6 +112,7 @@ fun HomeSection(
     active: Boolean,
     keys: SectionKeys,
     onOpenBrowser: (File) -> Unit,
+    onOpenNetwork: () -> Unit,
     onPlay: (PlayRequest) -> Unit,
     onOpenHistory: () -> Unit,
 ) {
@@ -118,6 +120,8 @@ fun HomeSection(
     val scope = rememberCoroutineScope()
     val history = remember { HistoryStore.get(context) }
     val currentOnBrowser by rememberUpdatedState(onOpenBrowser)
+    val currentOnNetwork by rememberUpdatedState(onOpenNetwork)
+    val networkShares = remember { SmbShareStore.get(context).shares }
     val currentOnPlay by rememberUpdatedState(onPlay)
     val currentOnHistory by rememberUpdatedState(onOpenHistory)
 
@@ -142,7 +146,8 @@ fun HomeSection(
 
     LaunchedEffect(storageCol) { storageState.animateScrollToItem(storageCol.coerceAtLeast(0)) }
     LaunchedEffect(recentCol) { recentState.animateScrollToItem(recentCol.coerceAtLeast(0)) }
-    LaunchedEffect(storage.size) { storageCol = storageCol.coerceIn(0, (storage.size - 1).coerceAtLeast(0)) }
+    // The Network card is the last focusable card of the first row, right after the drives.
+    LaunchedEffect(storage.size) { storageCol = storageCol.coerceIn(0, storage.size) }
     LaunchedEffect(recent.size) {
         recentCol = recentCol.coerceIn(0, recent.size)
         if (recent.isEmpty()) row = 0
@@ -150,7 +155,7 @@ fun HomeSection(
 
     DisposableEffect(Unit) {
         val handler: (RemoteKey, Int) -> Boolean = { key, _ ->
-            val storageCount = latestStorage.size
+            val storageCount = latestStorage.size + 1 // drives + the Network card
             val recentCount = if (latestRecent.isEmpty()) 0 else latestRecent.size + 1 // + "View all"
             when (key) {
                 RemoteKey.LEFT -> {
@@ -186,13 +191,14 @@ fun HomeSection(
                 }
                 RemoteKey.SELECT -> {
                     if (row == 0) {
-                        latestStorage.getOrNull(storageCol)?.let { currentOnBrowser(it.root.path) }
+                        val drive = latestStorage.getOrNull(storageCol)
+                        if (drive != null) currentOnBrowser(drive.root.path) else currentOnNetwork()
                     } else {
                         val entry = latestRecent.getOrNull(recentCol)
                         if (entry != null) {
                             scope.launch {
                                 val uri = Uri.parse(entry.uri)
-                                val subtitles = withContext(Dispatchers.IO) { FileBrowser.findSubtitlesFor(uri) }
+                                val subtitles = withContext(Dispatchers.IO) { FileBrowser.findSubtitlesFor(context, uri) }
                                 currentOnPlay(PlayRequest(uri, entry.title, subtitles))
                             }
                         } else {
@@ -212,7 +218,8 @@ fun HomeSection(
     // all the height that is left, with pictures as big as that space allows.
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val pageWidth = maxWidth.value
-        val visibleCards = maxOf(storage.size, 2).coerceAtMost(3)
+        // drives + the Network card (+ the "No USB drive" hint while there is no USB drive)
+        val visibleCards = (storage.size + 1 + (if (storage.size < 2) 1 else 0)).coerceIn(2, 3)
         val storageCardWidth = ((pageWidth - 48f - 20f * (visibleCards - 1)) / visibleCards).coerceIn(340f, 520f).dp
 
         Column(
@@ -238,6 +245,20 @@ fun HomeSection(
                             accent = if (internal) NeoColors.Cyan else NeoColors.Purple,
                             accent2 = if (internal) NeoColors.Blue else NeoColors.Pink,
                             focused = active && row == 0 && storageCol == index,
+                            modifier = Modifier.width(storageCardWidth),
+                        )
+                    }
+                    item {
+                        val count = networkShares.size
+                        NeoNetworkCard(
+                            title = "Network",
+                            subtitle = "NAS and PC shares (SMB)",
+                            detail = when (count) {
+                                0 -> "Add your NAS or PC"
+                                1 -> "1 saved share"
+                                else -> "$count saved shares"
+                            },
+                            focused = active && row == 0 && storageCol == storage.size,
                             modifier = Modifier.width(storageCardWidth),
                         )
                     }

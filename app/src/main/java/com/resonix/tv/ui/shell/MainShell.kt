@@ -147,6 +147,7 @@ fun MainShell(
     onSectionChange: (Section) -> Unit,
     updates: UpdateController,
     onOpenBrowser: (File) -> Unit,
+    onOpenNetwork: () -> Unit,
     onOpenHistory: () -> Unit,
     onPlay: (PlayRequest) -> Unit,
     onOpenDiagnostics: () -> Unit,
@@ -237,6 +238,7 @@ fun MainShell(
                         active = !inSidebar,
                         keys = keys,
                         onOpenBrowser = onOpenBrowser,
+                        onOpenNetwork = onOpenNetwork,
                         onPlay = onPlay,
                         onOpenHistory = onOpenHistory,
                     )

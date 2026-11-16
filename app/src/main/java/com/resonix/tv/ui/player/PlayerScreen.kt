@@ -51,6 +51,7 @@ import com.resonix.tv.input.KeyRouter
 import com.resonix.tv.input.RemoteKey
 import com.resonix.tv.player.FrameRateMatcher
 import com.resonix.tv.player.PlayRequest
+import com.resonix.tv.net.SmbUri
 import com.resonix.tv.player.PlaybackStats
 import com.resonix.tv.player.PlayerLifecycle
 import com.resonix.tv.player.PlayerFactory
@@ -157,9 +158,17 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit, onPlayNext: (PlayRequ
     val settings = remember { SettingsStore.get(context) }
     val history = remember { HistoryStore.get(context) }
     val dsp = remember { AudioPipeline.controller(context) } // restores saved EQ/channel settings first
-    val exo = remember { PlayerFactory.create(context) }
+    val exo = remember { PlayerFactory.create(context, SmbUri.isSmb(request.uri)) }
     val ui = remember(exo) { PlayerUiState(exo) }
-    val stats = remember(exo) { PlaybackStats() }
+    val stats = remember(exo) {
+        PlaybackStats().also {
+            it.sourceNote = when {
+                SmbUri.isSmb(request.uri) -> "Network share (SMB)"
+                request.uri.scheme == "http" || request.uri.scheme == "https" -> "Web link"
+                else -> "Local file"
+            }
+        }
+    }
     val recovery = remember { RecoveryTracker() }
     var recovering by remember { mutableStateOf(false) }
     val videoFormat = remember(ui.tracks) { selectedVideoFormat(ui.tracks) }
@@ -243,7 +252,7 @@ fun PlayerScreen(request: PlayRequest, onExit: () -> Unit, onPlayNext: (PlayRequ
             saveProgress()
             delay(1500)
             val next = if (settings.autoplayNext) {
-                withContext(Dispatchers.IO) { FileBrowser.findNextFor(request.uri) }
+                withContext(Dispatchers.IO) { FileBrowser.findNextFor(context, request.uri) }
             } else {
                 null
             }

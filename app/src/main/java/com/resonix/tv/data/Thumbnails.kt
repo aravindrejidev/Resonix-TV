@@ -28,6 +28,9 @@ object Thumbnails {
     private val gate = Semaphore(2)
 
     suspend fun load(context: Context, uriString: String): Bitmap? = withContext(Dispatchers.IO) {
+        // Network shares: no preview pictures (reading a frame would pull a lot of data over the
+        // network and compete with the movie that is playing). The card shows its placeholder.
+        if (uriString.startsWith("smb:", ignoreCase = true)) return@withContext null
         memory.get(uriString)?.let { return@withContext it }
 
         val file = File(directory(context), uriString.hashCode().toString(16) + "_" + uriString.length + ".jpg")

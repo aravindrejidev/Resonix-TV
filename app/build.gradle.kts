@@ -79,6 +79,8 @@ android {
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // smbj brings BouncyCastle: its jar can carry the same multi-release files twice.
+            pickFirsts += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
 
@@ -140,6 +142,9 @@ dependencies {
 
     // Native audio engine (C++): Oboe through Prefab
     implementation(libs.oboe)
+
+    // Network shares: SMB2 / SMB3 client in pure Java (no native code, no SMB1)
+    implementation(libs.smbj)
 
     // Compile-time only: the Media3 FFmpeg extension sources (fetched in CI) use these annotations.
     compileOnly(libs.checker.qual)

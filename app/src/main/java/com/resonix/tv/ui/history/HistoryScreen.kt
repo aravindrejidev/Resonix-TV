@@ -78,7 +78,7 @@ fun HistoryScreen(onPlay: (PlayRequest) -> Unit, onExit: () -> Unit) {
                     if (entry != null) {
                         scope.launch {
                             val uri = Uri.parse(entry.uri)
-                            val subtitles = withContext(Dispatchers.IO) { FileBrowser.findSubtitlesFor(uri) }
+                            val subtitles = withContext(Dispatchers.IO) { FileBrowser.findSubtitlesFor(context, uri) }
                             currentOnPlay(PlayRequest(uri, entry.title, subtitles))
                         }
                     }

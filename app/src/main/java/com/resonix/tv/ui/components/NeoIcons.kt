@@ -28,7 +28,7 @@ import kotlin.math.sin
 /** Icons are drawn with the Canvas, so the app needs no icon library. */
 enum class NeoIcon {
     HOME, EQ, SETTINGS, UPDATE, DRIVE, USB, HISTORY, PLAY, CHEVRON,
-    WIFI, ETHERNET, OFFLINE, FOLDER, VIDEO, INFO,
+    WIFI, ETHERNET, OFFLINE, FOLDER, VIDEO, INFO, NETWORK, PLUS,
 }
 
 private fun DrawScope.drawNeoIcon(icon: NeoIcon, color: Color) {
@@ -152,6 +152,19 @@ private fun DrawScope.drawNeoIcon(icon: NeoIcon, color: Color) {
             drawCircle(color, 9f * s, at(12f, 12f), style = stroke)
             drawLine(color, at(12f, 11f), at(12f, 17f), strokeWidth = 2f * s, cap = StrokeCap.Round)
             drawCircle(color, 1.2f * s, at(12f, 7.8f))
+        }
+        NeoIcon.NETWORK -> {
+            // three connected computers: a small network
+            drawLine(color, at(12f, 8f), at(5.5f, 17f), strokeWidth = 2f * s, cap = StrokeCap.Round)
+            drawLine(color, at(12f, 8f), at(18.5f, 17f), strokeWidth = 2f * s, cap = StrokeCap.Round)
+            drawLine(color, at(5.5f, 17f), at(18.5f, 17f), strokeWidth = 2f * s, cap = StrokeCap.Round)
+            drawCircle(color, 3f * s, at(12f, 7f))
+            drawCircle(color, 2.6f * s, at(5.5f, 17f))
+            drawCircle(color, 2.6f * s, at(18.5f, 17f))
+        }
+        NeoIcon.PLUS -> {
+            drawLine(color, at(12f, 5f), at(12f, 19f), strokeWidth = 2.4f * s, cap = StrokeCap.Round)
+            drawLine(color, at(5f, 12f), at(19f, 12f), strokeWidth = 2.4f * s, cap = StrokeCap.Round)
         }
     }
 }

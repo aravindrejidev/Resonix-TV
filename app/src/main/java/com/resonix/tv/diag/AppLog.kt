@@ -14,6 +14,7 @@ import java.util.Locale
  * dropped frames. The last lines are shown in Settings > Diagnostics, and the file can be copied
  * from  Android/data/com.resonix.tv/files/resonix-log.txt  and sent to the developer.
  * It never leaves the TV by itself, and it holds file names only (no folders, no account data).
+ * Network share events name the server and the share, never a user name, a password or a folder.
  */
 object AppLog {
     private const val TAG = "Resonix"

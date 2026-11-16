@@ -14,6 +14,8 @@
     <!-- ===== Permissions ===== -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Lets the player hold a Wi-Fi lock while it streams from a network share. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Local media: granular permissions on Android 13+, legacy permission before that -->
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />

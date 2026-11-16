@@ -49,7 +49,7 @@
 
 Dialogue buried under the soundtrack? Raise the centre channel. A subwoofer that shakes the room at 2 a.m.? Turn the LFE down. A TV with thin speakers? Build your own parametric EQ and keep it for every movie.
 
-No accounts. No ads. No telemetry. Your files stay on your TV; the network is used only to check GitHub for new versions.
+No accounts. No ads. No telemetry. Your files stay on your TV; the network is used to check GitHub for new versions and, only if you add one, to read your own NAS or PC (SMB share).
 
 ---
 
@@ -137,6 +137,7 @@ No accounts. No ads. No telemetry. Your files stay on your TV; the network is us
 #### Files & Library
 - **Storage cards** — internal storage, SD cards and USB drives with live usage bars.
 - **Built-in file browser** — folders first, then every common video and audio format (MKV, MP4, AVI, TS, M2TS, FLAC, DTS and many more).
+- **Network shares (SMB)** — play movies from a NAS or a PC. The *Network* card on Home lists your saved shares and *Add share* sets up a new one (name, server, share, user, password, domain or guest login). *Find servers* looks for NAS boxes and PCs on your network by itself, and *Test connection* says in plain words what is wrong (wrong password, server not found, timeout, SMB version). Passwords are encrypted with the Android Keystore and are never written to the log or to the watch history. The same browser, sorting, subtitle files, resume, next-episode autoplay and 24p matching work on a share as on a USB drive. SMB 2 and SMB 3 only (SMB 1 is not supported); no preview pictures for network files.
 - **Open from anywhere** — "Open with ResonixTV" from a file manager or another app.
 
 #### Tools
@@ -335,15 +336,16 @@ ResonixTV is a single-module Kotlin app with a C++ sound engine. The engine has 
 | `app/src/main/cpp/dsp/` | The C++ sound engine: biquad filters, channel gain, EQ, limiter, level meters and the self-test |
 | `app/src/main/cpp/jni/` | The bridge between Kotlin and the C++ engine |
 | `audio/` | Kotlin side of the engine: settings that are saved, graphic and parametric EQ models, EQ curve maths, the ExoPlayer audio processor |
-| `player/` | ExoPlayer setup, FFmpeg renderer factory, play requests |
-| `data/` | Storage devices, file browser, watch history, settings, preview pictures |
+| `player/` | ExoPlayer setup, FFmpeg renderer factory, play requests, `SmbDataSource` (plays `smb://` files with seeking) |
+| `data/` | Storage devices, file browser (`FileSource`: this TV's storage or a network share), watch history, settings, preview pictures |
+| `net/` | Network shares: saved shares, Keystore-encrypted passwords, the SMB connection (smbj), plain-words errors, server discovery |
 | `input/` | Remote-control key mapping and routing |
-| `ui/` | Compose screens: shell, home, browser, history, player, audio panel, EQ, settings, update, diagnostics, and the neumorphic theme and components |
+| `ui/` | Compose screens: shell, home, browser, network, history, player, audio panel, EQ, settings, update, diagnostics, and the neumorphic theme and components |
 | `update/` | GitHub release checker, APK picker, downloader and installer |
 | `scripts/` | `setup_ffmpeg.sh`, which builds the FFmpeg decoders |
 | `.github/workflows/` | The release workflow |
 
-**Built with:** Kotlin · Jetpack Compose · AndroidX Media3 / ExoPlayer · FFmpeg (LGPL build via Media3's `decoder_ffmpeg`) · C++20 through JNI · GitHub Actions
+**Built with:** Kotlin · Jetpack Compose · AndroidX Media3 / ExoPlayer · FFmpeg (LGPL build via Media3's `decoder_ffmpeg`) · [smbj](https://github.com/hierynomus/smbj) (SMB 2/3 in pure Java) · C++20 through JNI · GitHub Actions
 
 ---
 
@@ -388,11 +390,13 @@ pie showData title What ResonixTV is made of (non-blank lines of code)
 - [x] Subtitle size, style and height
 - [x] Match frame rate (24p), playback info tab, automatic recovery and an error log
 - [x] Night mode, picture modes, remembered audio / subtitle language, next-episode autoplay
+- [x] Play from network shares (SMB 2/3): saved shares, encrypted passwords, automatic server search
 
 **Ideas**
 - [ ] Audio delay, to fix lip-sync on soundbars and receivers
 - [ ] Stereo downmix that keeps dialogue clear on TVs with two speakers
-- [ ] Play from network shares (SMB / DLNA)
+- [ ] Network shares: ask the server for its full list of shares (today the usual share names are tried), preview pictures, remember the position in a folder
+- [ ] Play from DLNA / UPnP media servers
 - [ ] Sorting and search in the file browser
 
 Have an idea? Open an [issue](https://github.com/aravindrejidev/Resonix-TV/issues) and tell us.

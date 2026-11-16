@@ -12,6 +12,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import com.resonix.tv.diag.AppLog
+import com.resonix.tv.net.SmbIoException
 
 /** Compose-observable snapshot of an ExoPlayer instance. Call [poll] a few times per second. */
 @Stable
@@ -85,6 +86,9 @@ class PlayerUiState(private val player: Player) {
 
 /** A message people can understand, with the technical code underneath for the developer. */
 private fun friendlyMessage(error: PlaybackException): String {
+    // A problem on a network share: the network layer already knows the plain words for it.
+    val smb = generateSequence<Throwable>(error) { it.cause }.filterIsInstance<SmbIoException>().firstOrNull()
+    if (smb != null) return smb.problem.text + "\n" + error.errorCodeName
     val text = when (error.errorCode) {
         PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
         PlaybackException.ERROR_CODE_IO_NO_PERMISSION,

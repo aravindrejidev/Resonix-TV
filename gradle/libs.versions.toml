@@ -10,6 +10,7 @@ media3 = "1.11.1"
 coroutines = "1.11.0"
 oboe = "1.10.0"
 checkerQual = "3.42.0"
+smbj = "0.11.5"               # SMB2/SMB3 client (pure Java), Maven Central: com.hierynomus:smbj
 
 [libraries]
 # Jetpack Compose (versions managed by the BOM)
@@ -31,6 +32,9 @@ androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.re
 
 # Compile-time only: annotations used by the Media3 FFmpeg extension sources (fetched in CI)
 checker-qual = { group = "org.checkerframework", name = "checker-qual", version.ref = "checkerQual" }
+
+# Network shares (SMB2/SMB3), pure Java - brings BouncyCastle, asn-one, slf4j-api and mbassador with it
+smbj = { group = "com.hierynomus", name = "smbj", version.ref = "smbj" }
 
 # Native audio engine (C++ / Prefab)
 oboe = { group = "com.google.oboe", name = "oboe", version.ref = "oboe" }

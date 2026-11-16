@@ -20,19 +20,23 @@ import androidx.compose.ui.unit.Density
 import com.resonix.tv.data.MediaLibrary
 import com.resonix.tv.data.SettingsStore
 import com.resonix.tv.player.PlayRequest
+import com.resonix.tv.ui.browser.BrowseStart
 import com.resonix.tv.ui.browser.BrowserScreen
 import com.resonix.tv.ui.diagnostics.DiagnosticsScreen
 import com.resonix.tv.ui.history.HistoryScreen
+import com.resonix.tv.ui.network.NetworkScreen
+import com.resonix.tv.ui.network.ShareFormScreen
 import com.resonix.tv.ui.player.PlayerScreen
 import com.resonix.tv.ui.shell.MainShell
 import com.resonix.tv.ui.shell.Section
 import com.resonix.tv.ui.theme.neoBackground
 import com.resonix.tv.update.UpdateController
-import java.io.File
 
 /** Full-screen pages that open on top of the main shell. BACK returns to the page below. */
 sealed interface Overlay {
-    data class Browser(val startDir: File?) : Overlay
+    data class Browser(val start: BrowseStart) : Overlay
+    data object Network : Overlay
+    data class ShareForm(val editId: String?) : Overlay
     data object History : Overlay
     data class Player(val request: PlayRequest) : Overlay
     data object Diagnostics : Overlay
@@ -85,17 +89,27 @@ fun ResonixApp(
                     section = section,
                     onSectionChange = { section = it },
                     updates = updates,
-                    onOpenBrowser = { dir -> push(Overlay.Browser(dir)) },
+                    onOpenBrowser = { dir -> push(Overlay.Browser(BrowseStart.Local(dir))) },
+                    onOpenNetwork = { push(Overlay.Network) },
                     onOpenHistory = { push(Overlay.History) },
                     onPlay = { request -> push(Overlay.Player(request)) },
                     onOpenDiagnostics = { push(Overlay.Diagnostics) },
                 )
                 is Overlay.Browser -> key(top) {
                     BrowserScreen(
-                        startDir = top.startDir,
+                        start = top.start,
                         onPlay = { request -> push(Overlay.Player(request)) },
                         onExit = { pop() },
                     )
+                }
+                Overlay.Network -> NetworkScreen(
+                    onAddShare = { push(Overlay.ShareForm(null)) },
+                    onEditShare = { id -> push(Overlay.ShareForm(id)) },
+                    onOpenShare = { start -> push(Overlay.Browser(start)) },
+                    onExit = { pop() },
+                )
+                is Overlay.ShareForm -> key(top) {
+                    ShareFormScreen(editId = top.editId, onDone = { pop() })
                 }
                 Overlay.History -> HistoryScreen(
                     onPlay = { request -> push(Overlay.Player(request)) },
