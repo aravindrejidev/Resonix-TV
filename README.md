@@ -31,7 +31,7 @@
 </p>
 <br/>
 
-[**Showcase**](#showcase) · [**Features**](#features) · [**Audio Chain**](#audio-chain) · [**Download**](#download) · [**Remote Control**](#remote) · [**Architecture**](#architecture) · [**Contributing**](#contributing) · [**Support**](#support) · [**Disclaimer**](#disclaimer)
+[**Showcase**](#showcase) · [**Features**](#features) · [**Audio Chain**](#audio-chain) · [**Download**](#download) · [**Network Shares**](#network) · [**Remote Control**](#remote) · [**Settings**](#settings) · [**Architecture**](#architecture) · [**Contributing**](#contributing) · [**Support**](#support) · [**Disclaimer**](#disclaimer)
 
 <br/>
 
@@ -49,7 +49,9 @@
 
 Dialogue buried under the soundtrack? Raise the centre channel. A subwoofer that shakes the room at 2 a.m.? Turn the LFE down. A TV with thin speakers? Build your own parametric EQ and keep it for every movie.
 
-No accounts. No ads. No telemetry. Your files stay on your TV; the network is used to check GitHub for new versions and, only if you add one, to read your own NAS or PC (SMB share).
+It plays from the TV's own storage, from USB drives and SD cards, and from a NAS or PC on your home network (SMB shares).
+
+No accounts. No ads. No telemetry. Your files stay where they are; the network is used to check GitHub for new versions and, only if *you* add a share, to read your own NAS or PC.
 
 ---
 
@@ -110,39 +112,44 @@ No accounts. No ads. No telemetry. Your files stay on your TV; the network is us
 - **Saved automatically** — every change is stored on the TV, so your sound is there next time.
 - **Night mode** — evens out loud and quiet parts (Off / Light / Strong), so dialogue stays clear at low volume and explosions stop waking the house.
 - **Presets** — Flat, Dialogue boost and Bass boost, plus a one-press reset.
+- **Master switch** — *Channel mixer and EQ* in Settings sends the sound through completely untouched when you want to hear the original. *Reset audio settings* puts the graphic EQ and every channel back to flat and keeps your saved parametric EQ.
 - **Safe by design** — a soft limiter catches peaks, EQ changes glide in without clicks, and a flat chain is bit-exact (nothing is coloured).
 
 #### Interface
 - **Dark neumorphic design** — raised cards, pressed-in tracks, neon focus rings.
 - **Made for the remote** — every screen works with a D-pad, no touch needed.
 - **Interface size** — scale everything from 50 % to 120 % in Settings to suit your screen and sofa distance.
+- **Status bar** — the time and a Wi-Fi / Ethernet / offline icon at the top of every main page, so you can see at a glance that the TV is on the network.
+- **Side menu** — Home, EQ, Settings and Update. A small card at the bottom shows which EQ is working and which preset is loaded.
 
     </td>
     <td width="50%" valign="top">
 
 #### Playback
 - **FFmpeg audio decoders** — AC3, E-AC3, DTS, DTS-HD, TrueHD, MLP, FLAC, ALAC, Opus, Vorbis, MP3 and AAC. Android's own decoders are the fallback.
-- **Audio & subtitle tracks** — switch language or subtitle on the fly, without leaving the movie. The next movie starts with the language you picked last.
+- **Audio panel** — press DOWN while a movie plays. Six tabs: *Tracks*, *Channels*, *Equalizer*, *Presets*, *Picture* and *Info*.
+- **Audio & subtitle tracks** — switch language or subtitle on the fly (or choose *Off*), without leaving the movie. The next movie starts with the language you picked last; you can switch this off in Settings.
 - **Picture modes** — Fit, Zoom or Stretch, saved for next time.
 - **Subtitle looks** — size, a clear outline (white or yellow) and height, so they fit your TV.
 - **Next episode** — optional: when a movie ends, the next file in the same folder plays by itself.
 - **Subtitle files** — `.srt`, `.vtt`, `.ass` and `.ssa` files next to the movie are found and (optionally) switched on automatically. The size is adjustable in Settings (75 % – 200 %).
-- **Resume** — continue where you stopped, with preview pictures in *Recently Watched*. The movie pauses by itself when you press HOME or the TV goes to sleep, and returns to the list when it ends.
-- **Match frame rate (24p)** — optional. The TV switches to the movie's frame rate, so slow pans stop juddering. The screen blinks once while it changes.
-- **Playback info** — the *Info* tab of the audio panel shows codec, resolution, HDR, bitrate, which decoders really run (hardware or software, FFmpeg or the TV's own), dropped frames, buffer and the screen mode.
-- **Self-healing** — after a hiccup (a USB drive that woke up late, a decoder that stumbled) the movie restarts by itself, up to twice. Errors are explained in plain words.
+- **Resume** — continue where you stopped (a movie that is almost finished starts from the beginning again). The movie pauses by itself when you press HOME or the TV goes to sleep, and returns to the list when it ends. You can switch resuming off in Settings.
+- **Match frame rate (24p)** — optional. The TV switches to a refresh rate that fits the movie (24 / 48 / 72 Hz for film, 50 Hz for 25 fps and so on, at the same picture size), so slow pans stop juddering. The screen blinks once while it changes. *Info* shows what was chosen.
+- **Playback info** — the *Info* tab of the audio panel shows codec, resolution, HDR, bitrate, which decoders really run (hardware or software, FFmpeg or the TV's own), dropped frames, buffer, the screen mode and where the movie comes from (local file, network share or web link).
+- **Self-healing** — after a hiccup (a USB drive that woke up late, a Wi-Fi drop, a decoder that stumbled) the movie restarts by itself, up to twice. If it still fails, an error in plain words tells you what happened and OK tries again. A wrong password on a network share is not retried by the self-healing, and the TV waits 20 seconds before it tries the same login again, so your NAS does not lock the account.
 - **On-screen display** — title, progress, buffering, audio format; it hides itself after a time you choose.
 - **Fast seeking** — 5, 10, 15 or 30 seconds per press (hold the key to jump further), landing on the nearest keyframe so it stays instant even in big 4K files.
 
 #### Files & Library
-- **Storage cards** — internal storage, SD cards and USB drives with live usage bars.
-- **Built-in file browser** — folders first, then every common video and audio format (MKV, MP4, AVI, TS, M2TS, FLAC, DTS and many more).
-- **Network shares (SMB)** — play movies from a NAS or a PC. The *Network* card on Home lists your saved shares and *Add share* sets up a new one (name, server, share, user, password, domain or guest login). *Find servers* looks for NAS boxes and PCs on your network by itself, and *Test connection* says in plain words what is wrong (wrong password, server not found, timeout, SMB version). Passwords are encrypted with the Android Keystore and are never written to the log or to the watch history. The same browser, sorting, subtitle files, resume, next-episode autoplay and 24p matching work on a share as on a USB drive. SMB 2 and SMB 3 only (SMB 1 is not supported); no preview pictures for network files.
-- **Open from anywhere** — "Open with ResonixTV" from a file manager or another app.
+- **Storage cards** — internal storage, SD cards and USB drives with live usage bars. A hint card shows up while no USB drive is plugged in.
+- **Built-in file browser** — folders first, then every common video and audio format (MKV, MP4, AVI, TS, M2TS, FLAC, DTS and many more). Hidden files and system folders (recycle bins, NAS thumbnail folders) are left out. It remembers the last folder you used.
+- **Recently Watched** — Home shows your last 8 movies with preview pictures and a progress bar; *View all* lists up to 30. Press OK to continue where you stopped. *Clear watch history* in Settings removes the list and the pictures.
+- **Network shares (SMB)** — play movies from a NAS or a PC. The *Network* card on Home lists your saved shares and *Add share* sets up a new one (name, server, share, user, password, domain or guest login). *Find servers* looks for NAS boxes and PCs on your network by itself, and *Test connection* says in plain words what is wrong (wrong password, server not found, timeout, SMB version). Passwords are encrypted with the Android Keystore and are never written to the log or to the watch history. The same browser, sorting, subtitle files, resume, next-episode autoplay and 24p matching work on a share as on a USB drive, and seeking works too. SMB 2 and SMB 3 only (SMB 1 is not supported); no preview pictures for network files. See [Network Shares](#network) for the full guide.
+- **Open from anywhere** — "Open with ResonixTV" from a file manager, a browser or another app, for video and audio files and for web links (`http` / `https`).
 
 #### Tools
-- **In-app updater** — checks GitHub Releases and installs the build that matches your TV's CPU.
-- **Diagnostics and error log** — shows the audio engine, the FFmpeg decoders, the remote keys the app receives and the newest lines of a log file that records crashes, player errors and decoders. Send it along when you report a problem.
+- **In-app updater** — the *Update* page checks GitHub Releases, shows what is new, downloads the build that matches your TV's CPU and hands it to Android's installer. The first time, Android asks you to allow ResonixTV to install apps.
+- **Diagnostics and error log** — shows the audio engine (and whether Oboe / AAudio is available), the FFmpeg decoders, the remote keys the app receives and the newest lines of a log file that records crashes, player errors, decoders and network-share events (never passwords). Send it along when you report a problem.
 - **DSP self-test** — the C++ engine tests itself against theory, on the device and on every release build.
 
     </td>
@@ -243,9 +250,51 @@ Once installed, the **Update** page in the side menu tells you when a new versio
 
 ### Getting Started
 1. Open ResonixTV and allow access to your media when asked. For the built-in file browser to see subtitle files next to your movies, also allow **All files access** when Android offers it.
-2. On **Home**, choose a storage card to browse, or pick something from *Recently Watched*.
+2. On **Home**, choose a storage card to browse, or pick something from *Recently Watched*. To play from a NAS or PC, choose the **Network** card (see [Network Shares](#network)).
 3. While the movie plays, press **DOWN** to open the audio panel: tracks, channel mixer, equalizer and presets.
 4. For a full-screen EQ with a response curve, open **EQ** in the side menu.
+
+---
+
+<a id="network"></a>
+## 🌐 Network Shares (SMB)
+
+Play movies straight from a NAS (Synology, QNAP, a router with a USB disk, a Raspberry Pi with Samba ...) or from a shared folder on a Windows PC or Mac. Nothing is copied to the TV: the movie is read over the network while it plays.
+
+**What you need**
+- The TV and the server on the same network (Wi-Fi or cable; cable is best for big 4K files).
+- File sharing switched on at the server, with **SMB 2 or SMB 3** (every NAS and PC from the last ten years has it). SMB 1 is not supported.
+- A user name and password for the share, or a share that allows guests.
+
+**Add a share**
+1. On **Home**, choose the **Network** card, then **Add share**.
+2. Press OK on **Find servers on the network** to let the TV look for NAS boxes and PCs, or type the server's name or IP address yourself (an IP such as `192.168.1.20` is the safest).
+3. Optionally type the **share name** (for example `Movies`). Leave it empty and the TV shows the usual share names that exist on the server.
+4. Type the **user name** and **password**, or switch on **Guest login**. *Domain* is only needed on company networks.
+5. Choose **Test connection**. It tells you in plain words if something is wrong. Then choose **Save**.
+
+Press OK on a line to type it: a small box with the TV's keyboard opens. The password box has *Show what I type*, because typing with a remote is easy to get wrong.
+
+**Use a share.** Choose it in the Network list and browse like on a USB drive: folders first, subtitle files next to the movie are found, *Recently Watched* remembers where you stopped, and the next episode can start by itself. Press RIGHT on a saved share to **edit** or **delete** it.
+
+**If something goes wrong**
+
+| Message | What to try |
+|---|---|
+| The server was not found | Use the IP address instead of the name. Check that the TV and the server are on the same network. |
+| The server did not answer in time | The server may be off, asleep or out of Wi-Fi range. |
+| The server refused the connection | Switch file sharing (SMB) on at the server. |
+| SMB version | Switch SMB 2 / SMB 3 on at the server. SMB 1 only is too old. |
+| Wrong user name or password | Check the account on the server. The TV waits 20 seconds before it tries the same login again, so the server does not lock the account. |
+| Access denied | This user may not open the share, or the server does not allow guests. |
+| The server has no share with this name | Check the share name in the server's settings. |
+| The connection was lost | Check the network and press OK to try again. |
+
+**Good to know**
+- Passwords are encrypted with a key in the Android Keystore and are never shown again, written to the log or put in the watch history. The history only holds addresses like `smb://nas/Movies/Film.mkv`.
+- If you delete a saved share, its movies in *Recently Watched* cannot be played until you add the share again.
+- The TV cannot ask a server for its complete list of shares. If your share is not in the list, edit the share and type its name.
+- Network files have no preview pictures.
 
 ---
 
@@ -259,6 +308,31 @@ Once installed, the **Update** page in the side menu tells you when a new versio
 | UP / DOWN | Choose a section in the side menu, or a line on a page |
 | RIGHT / OK | Enter the page |
 | LEFT / BACK | Back to the side menu (inside the EQ page, BACK first goes up one level) |
+
+**Home**
+
+| Key | Action |
+|---|---|
+| LEFT / RIGHT | Move along a row (storage cards and the *Network* card, or *Recently Watched*) |
+| UP / DOWN | Switch between the two rows |
+| OK | Open the card, or continue the movie |
+
+**File browser** (storage and network shares)
+
+| Key | Action |
+|---|---|
+| UP / DOWN | Choose a folder or file (hold to move faster) |
+| OK / RIGHT | Open the folder, or play the file |
+| LEFT / BACK | Up one folder; at the top, leave the browser |
+
+**Network and *Add share***
+
+| Key | Action |
+|---|---|
+| UP / DOWN | Choose a line |
+| OK | Open a share, or type the value of a line, or run *Test connection* / *Save* |
+| RIGHT | In the share list: edit or delete the share. On the *Guest login* line: switch it |
+| LEFT / BACK | Go back (in *Add share*, BACK leaves without saving) |
 
 **While a movie plays**
 
@@ -287,6 +361,30 @@ Once installed, the **Update** page in the side menu tells you when a new versio
 | UP / DOWN | Choose a setting (band, type, frequency, gain, Q …) |
 | LEFT / RIGHT | Change it (hold for bigger steps) |
 | OK | Switch a band on / off, or reset |
+
+---
+
+<a id="settings"></a>
+## ⚙️ Settings
+
+Open **Settings** in the side menu. OK switches a setting on or off, or steps it to its next value. For *Interface size* and *Subtitle size*, LEFT / RIGHT makes the value smaller or larger.
+
+| Group | Setting | What it does |
+|---|---|---|
+| **Display** | Interface size | Scales the whole interface (50 % – 120 %). |
+| **Playback** | Seek step | How far LEFT / RIGHT jump while watching: 5, 10, 15 or 30 seconds. |
+| | Hide controls after | Seconds until the on-screen display fades away. |
+| | Match frame rate (24p) | Switches the TV to the movie's frame rate. Off by default. |
+| | Resume where you stopped | Continue a movie from the last position. |
+| | Show subtitle files automatically | Turns on a subtitle file found next to the movie. |
+| | Subtitle size / style / height | Size (75 % – 200 %), your TV's caption style or a clear outline, and how high they sit. |
+| | Remember audio and subtitle language | The next movie starts with the language you picked last. |
+| | Play the next file automatically | When a movie ends, the next file in the same folder plays. |
+| **Audio** | Channel mixer and EQ | Off = the sound goes through untouched. |
+| | Reset audio settings | Flat graphic EQ, every channel at 0 dB and unmuted. Your saved parametric EQ is kept. |
+| **Library** | Clear watch history | Removes *Recently Watched* and the preview pictures. |
+| **System** | Diagnostics | Audio engine, FFmpeg decoders, remote keys and the error log. |
+| | About | Version and build number, and where updates come from. |
 
 ---
 
@@ -340,8 +438,10 @@ ResonixTV is a single-module Kotlin app with a C++ sound engine. The engine has 
 | `data/` | Storage devices, file browser (`FileSource`: this TV's storage or a network share), watch history, settings, preview pictures |
 | `net/` | Network shares: saved shares, Keystore-encrypted passwords, the SMB connection (smbj), plain-words errors, server discovery |
 | `input/` | Remote-control key mapping and routing |
+| `diag/` | The error log file |
 | `ui/` | Compose screens: shell, home, browser, network, history, player, audio panel, EQ, settings, update, diagnostics, and the neumorphic theme and components |
 | `update/` | GitHub release checker, APK picker, downloader and installer |
+| `tools/` | The DSP self-test that runs on a computer |
 | `scripts/` | `setup_ffmpeg.sh`, which builds the FFmpeg decoders |
 | `.github/workflows/` | The release workflow |
 
@@ -374,9 +474,9 @@ ResonixTV is free and open source, with no ads or subscriptions. If it made your
 
 ```mermaid
 pie showData title What ResonixTV is made of (non-blank lines of code)
-    "Kotlin / Java (app and interface)" : 5787
+    "Kotlin / Java (app and interface)" : 9047
     "C++ (sound engine)" : 980
-    "Build scripts and CI" : 535
+    "Build scripts and CI" : 646
 ```
 
 </div>
@@ -390,7 +490,7 @@ pie showData title What ResonixTV is made of (non-blank lines of code)
 - [x] Subtitle size, style and height
 - [x] Match frame rate (24p), playback info tab, automatic recovery and an error log
 - [x] Night mode, picture modes, remembered audio / subtitle language, next-episode autoplay
-- [x] Play from network shares (SMB 2/3): saved shares, encrypted passwords, automatic server search
+- [x] Play from network shares (SMB 2/3): saved shares, encrypted passwords, automatic server search, seeking, subtitles and resume
 
 **Ideas**
 - [ ] Audio delay, to fix lip-sync on soundbars and receivers
@@ -428,6 +528,8 @@ Contributions are welcome, whether it's a bug fix, a new feature, or better word
 - **[FFmpeg](https://ffmpeg.org/)** — the audio decoders behind DTS, TrueHD, E-AC3 and more.
 - **[AndroidX Media3](https://developer.android.com/media/media3)** — ExoPlayer and the FFmpeg decoder extension.
 - **Robert Bristow-Johnson's *Audio EQ Cookbook*** — the filter designs used by both equalizers.
+- **[smbj](https://github.com/hierynomus/smbj)** — the SMB 2/3 client (pure Java) behind network shares, with **[Bouncy Castle](https://www.bouncycastle.org/)** for the login encryption.
+- **[Oboe](https://github.com/google/oboe)** — Google's low-latency audio library, linked into the native engine.
 - **Jetpack Compose** — the foundation of the interface.
 
 ---
@@ -436,14 +538,15 @@ Contributions are welcome, whether it's a bug fix, a new feature, or better word
 ## ⚖️ License & Disclaimer
 
 ### License
-ResonixTV is free software, released under the [GNU General Public License v3.0](LICENSE). It uses FFmpeg, built as an LGPL-only version (no GPL parts), which is distributed under the LGPL.
+ResonixTV is free software, released under the [GNU General Public License v3.0](LICENSE). It uses FFmpeg, built as an LGPL-only version (no GPL parts), which is distributed under the LGPL. The network-share code uses smbj and Bouncy Castle (Apache 2.0 and MIT licences) and the native engine links Oboe (Apache 2.0); all are compatible with the GPL.
 
 ### Disclaimer
 - **Sound shaping, not magic.** The EQ and the mixer change how a recording sounds. They cannot bring back detail that was never there, and a very loud boost can still sound distorted even though the soft limiter prevents clipping.
 - **Not every audio path is processed.** The sound engine works on decoded 16-bit and floating-point audio. Audio that reaches your amplifier as an untouched encoded bitstream (passthrough), and 24-bit PCM output, is left as it is. The format shown at the top of the audio panel tells you what the engine is receiving.
 - **Surround formats.** Object-based audio such as Dolby Atmos or DTS:X is played as its normal 5.1 / 7.1 channels; the objects are not rendered.
 - **TVs differ.** Android TV hardware and firmware vary a lot. If something misbehaves on your device, please report it with the model name.
-- **Privacy.** Everything happens on the TV. ResonixTV does not upload your files, and the only network request it makes by itself is the check for new versions on GitHub.
+- **Privacy.** Everything happens on the TV. ResonixTV does not upload your files. By itself it only checks GitHub for new versions. It talks to a NAS or PC only if you add a network share, and then only to that server. Share passwords are stored encrypted on the TV and are never logged.
+- **Network shares.** Playback over Wi-Fi depends on your network: a very high-bitrate movie may stutter if the connection is slow, and a cable is more dependable. Only SMB 2 and SMB 3 servers work. The TV cannot list every share on a server by itself (see [Network Shares](#network)).
 
 ---
 
