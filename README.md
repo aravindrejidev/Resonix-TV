@@ -128,7 +128,7 @@ No accounts. No ads. No telemetry. Your files stay where they are; the network i
 #### Playback
 - **FFmpeg audio decoders** — AC3, E-AC3, DTS, DTS-HD, TrueHD, MLP, FLAC, ALAC, Opus, Vorbis, MP3 and AAC. Android's own decoders are the fallback.
 - **Audio panel** — press DOWN while a movie plays. Six tabs: *Tracks*, *Channels*, *Equalizer*, *Presets*, *Picture* and *Info*.
-- **Audio & subtitle tracks** — switch language or subtitle on the fly (or choose *Off*), without leaving the movie. The next movie starts with the language you picked last; you can switch this off in Settings.
+- **Audio & subtitle tracks** — switch language or subtitle on the fly (or choose *Off*), without leaving the movie. Every track is listed by its language (*Malayalam*, *English* ...) with codec and channel layout below it, so you never have to guess from a file name; a *Commentary* or *Forced* track is marked. The next movie starts with the language you picked last; you can switch this off in Settings.
 - **Picture modes** — Fit, Zoom or Stretch, saved for next time.
 - **Subtitle looks** — size, a clear outline (white or yellow) and height, so they fit your TV.
 - **Next episode** — optional: when a movie ends, the next file in the same folder plays by itself.

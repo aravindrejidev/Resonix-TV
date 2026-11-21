@@ -123,10 +123,51 @@ fun codecName(mime: String?): String = when (mime) {
     else -> mime.orEmpty().substringAfter('/')
 }
 
+/** Older three-letter codes that some files use; Java's Locale does not always know them. */
+private val LANGUAGE_ALIASES = mapOf(
+    "ger" to "de", "fre" to "fr", "chi" to "zh", "dut" to "nl", "cze" to "cs", "gre" to "el",
+    "ice" to "is", "mac" to "mk", "may" to "ms", "per" to "fa", "rum" to "ro", "slo" to "sk",
+    "wel" to "cy", "arm" to "hy", "baq" to "eu", "geo" to "ka", "alb" to "sq", "bur" to "my",
+)
+
+/** "ml" or "mal" -> "Malayalam". Null when the file does not say which language it is. */
 private fun languageName(code: String?): String? {
-    if (code.isNullOrBlank() || code == "und") return null
-    val name = Locale.forLanguageTag(code).getDisplayLanguage(Locale.ENGLISH)
+    if (code.isNullOrBlank()) return null
+    val lower = code.lowercase()
+    if (lower == "und" || lower == "zxx" || lower == "mul") return null
+    val name = Locale.forLanguageTag(LANGUAGE_ALIASES[lower] ?: code).getDisplayLanguage(Locale.ENGLISH)
     return name.ifBlank { code }
+}
+
+/**
+ * The first line of a track in the list: its LANGUAGE ("Malayalam"). The title written into the
+ * file is often only a release or file name that hides the language, so it is used only when the
+ * file does not name a language at all.
+ */
+private fun trackTitle(format: Format, fallback: String): String =
+    languageName(format.language) ?: format.label?.takeIf { it.isNotBlank() } ?: fallback
+
+/**
+ * Two tracks with the same language (for example a normal track and a commentary): add the
+ * title from the file to tell them apart, and number what is still identical.
+ */
+private fun tellApart(items: List<TrackItem.Choice>, fileTitles: List<String?>): List<TrackItem.Choice> {
+    val counts = items.groupingBy { it.label }.eachCount()
+    val withNotes = items.mapIndexed { index, item ->
+        val fileTitle = fileTitles[index]
+        if ((counts[item.label] ?: 0) > 1 && !fileTitle.isNullOrBlank() && !fileTitle.equals(item.label, ignoreCase = true)) {
+            item.copy(detail = listOf(item.detail, fileTitle).filter { it.isNotEmpty() }.joinToString(" | "))
+        } else {
+            item
+        }
+    }
+    val seen = HashMap<String, Int>()
+    return withNotes.map { item ->
+        val key = item.label + "|" + item.detail
+        val n = (seen[key] ?: 0) + 1
+        seen[key] = n
+        if (n > 1) item.copy(label = item.label + " (" + n + ")") else item
+    }
 }
 
 /** The audio format ExoPlayer is playing right now (null before playback starts). */
@@ -141,8 +182,10 @@ fun selectedAudioFormat(tracks: Tracks): Format? {
 }
 
 fun buildTrackItems(tracks: Tracks): List<TrackItem> {
-    val audio = ArrayList<TrackItem>()
-    val text = ArrayList<TrackItem>()
+    val audio = ArrayList<TrackItem.Choice>()
+    val audioFileTitles = ArrayList<String?>()
+    val text = ArrayList<TrackItem.Choice>()
+    val textFileTitles = ArrayList<String?>()
     var anyTextSelected = false
     for (group in tracks.groups) {
         for (i in 0 until group.length) {
@@ -154,10 +197,12 @@ fun buildTrackItems(tracks: Tracks): List<TrackItem> {
                     val detail = listOf(
                         codecName(format.sampleMimeType),
                         if (format.channelCount > 0) channelLayoutName(format.channelCount) else "",
+                        if ((format.roleFlags and C.ROLE_FLAG_COMMENTARY) != 0) "Commentary" else "",
                     ).filter { it.isNotEmpty() }.joinToString(" | ")
+                    audioFileTitles.add(format.label)
                     audio.add(
                         TrackItem.Choice(
-                            label = format.label ?: languageName(format.language) ?: "Track ${audio.size + 1}",
+                            label = trackTitle(format, "Track ${audio.size + 1}"),
                             detail = detail,
                             selected = selected,
                             isText = false,
@@ -168,10 +213,15 @@ fun buildTrackItems(tracks: Tracks): List<TrackItem> {
                 }
                 C.TRACK_TYPE_TEXT -> {
                     if (selected) anyTextSelected = true
+                    val textDetail = listOf(
+                        format.sampleMimeType?.substringAfter('/') ?: "",
+                        if ((format.selectionFlags and C.SELECTION_FLAG_FORCED) != 0) "Forced" else "",
+                    ).filter { it.isNotEmpty() }.joinToString(" | ")
+                    textFileTitles.add(format.label)
                     text.add(
                         TrackItem.Choice(
-                            label = format.label ?: languageName(format.language) ?: "Subtitle ${text.size + 1}",
-                            detail = format.sampleMimeType?.substringAfter('/') ?: "",
+                            label = trackTitle(format, "Subtitle ${text.size + 1}"),
+                            detail = textDetail,
                             selected = selected,
                             isText = true,
                             group = group,
@@ -185,10 +235,10 @@ fun buildTrackItems(tracks: Tracks): List<TrackItem> {
     }
     val result = ArrayList<TrackItem>()
     result.add(TrackItem.Header("AUDIO"))
-    if (audio.isEmpty()) result.add(TrackItem.Header("(no audio tracks yet)")) else result.addAll(audio)
+    if (audio.isEmpty()) result.add(TrackItem.Header("(no audio tracks yet)")) else result.addAll(tellApart(audio, audioFileTitles))
     result.add(TrackItem.Header("SUBTITLES"))
     result.add(TrackItem.Choice("Off", "", !anyTextSelected, true, null, 0))
-    result.addAll(text)
+    result.addAll(tellApart(text, textFileTitles))
     return result
 }
 
